@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  /* Новая палитра */
+  --green-main: #69835D;
+  --green-light: #79a471;
+  --green-lighter: #8db881;
+  --green-pale: #b5d1ad;
+  --green-dark: #3b692f;
+  --green-darker: #165b00;
+  --green-darkest: #024605;
+  --green-bright: #95c740;
+  --bg-white: #f6f6f6;
+  --gray-light: #e6e6e6;
+  --orange-dirty: #e4ba6a;
+
+  /* Семантика для интерфейса */
+  --background: var(--bg-white);
+  --foreground: #0f172a;
+  --header: var(--green-darkest);
+  --header-hover: var(--green-darker);
+  --header-active: var(--green-dark);
+  --accent: var(--green-main);
+  --accent-light: var(--green-pale);
+  --sidebar: var(--green-darkest);
+  --sidebar-width: 16rem;
+  --sidebar-collapsed: 4rem;
+  --card: #ffffff;
+  --border: var(--gray-light);
+  --risk-red: #dc2626;
+  --risk-orange: var(--orange-dirty);
+  --risk-yellow: #ca8a04;
+  --risk-green: var(--green-main);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+

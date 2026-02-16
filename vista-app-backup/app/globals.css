@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --header: #14532d;
+  --header-hover: #166534;
+  --header-active: #15803d;
+  --accent: #16a34a;
+  --accent-light: #dcfce7;
+  --sidebar: #14532d;
+  --sidebar-width: 16rem;
+  --sidebar-collapsed: 4rem;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --risk-red: #dc2626;
+  --risk-orange: #ea580c;
+  --risk-yellow: #ca8a04;
+  --risk-green: #16a34a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Скрытие скроллбара при необходимости */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+}
