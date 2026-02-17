@@ -61,6 +61,189 @@ const careerHistory = [
   { period: "Май 2024 — по н.в.", role: "Второй пилот отряда B-777", duration: "1 г 2 мес." },
 ];
 
+// Результаты психологического профиля (после «Запросить результаты»)
+const psychologicalResults = {
+  cognitive: {
+    title: "Когнитивные способности",
+    level: "общий уровень — высокий",
+    zones: [
+      {
+        name: "Внимание и контроль внимания",
+        items: [
+          { name: "Избирательное внимание", value: "85%" },
+          { name: "Устойчивое внимание", value: "88%" },
+          { name: "Переключение внимания", value: "90%" },
+          { name: "Контроль интерференции/шумоустойчивость", value: "92%" },
+          { name: "Бдительность/внимание к редким сигналам", value: "97%" },
+        ],
+      },
+      {
+        name: "Скорость обработки информации",
+        items: [
+          { name: "Психомоторная скорость", value: "96%" },
+          { name: "Скорость перцептивного различения", value: "85%" },
+          { name: "Скорость принятия простых решений", value: "95%" },
+          { name: "Темп работы при сохранении точности", value: "88%" },
+        ],
+      },
+      {
+        name: "Память",
+        items: [
+          { name: "Кратковременная", value: "83%" },
+          { name: "Рабочая память: удержание + переработка", value: "86%" },
+          { name: "Вербальная/зрительно-пространственная рабочая память", value: "91%" },
+          { name: "Семантическая (знания)", value: "89%" },
+          { name: "Процедурная (навыки)", value: "85%" },
+          { name: "Эпизодическая (события)", value: "87%" },
+          { name: "Обучаемость/скорость усвоения", value: "97%" },
+          { name: "Проспективная («не забыть сделать»)", value: "—" },
+        ],
+      },
+      {
+        name: "Исполнительные функции",
+        items: [
+          { name: "Самоконтроль/ингибиция", value: "82%" },
+          { name: "Когнитивная гибкость (перестраиваться)", value: "85%" },
+          { name: "Мониторинг ошибок", value: "87%" },
+          { name: "Устойчивость к фрустрации в задачах", value: "82%" },
+          { name: "Целеполагание и удержание цели под нагрузкой", value: "92%" },
+        ],
+      },
+      {
+        name: "Мышление и интеллект",
+        items: [
+          { name: "Логическое мышление", value: "92%" },
+          { name: "Абстрактное мышление", value: "84%" },
+          { name: "Аналитическое мышление", value: "86%" },
+          { name: "Индукция/дедукция", value: "81%" },
+          { name: "Числовое, вербальное, пространственное рассуждение", value: "97%" },
+          { name: "Системное мышление (структуры/взаимосвязи)", value: "94%" },
+          { name: "Критическое мышление (оценка аргументов)", value: "95%" },
+        ],
+      },
+      {
+        name: "Решение задач и принятие решений",
+        items: [
+          { name: "Оценка риска/вероятностей", value: "90%" },
+          { name: "Калибровка уверенности", value: "81%" },
+          { name: "Решение в неопределенности", value: "87%" },
+          { name: "Приоритизация (стоимость/время/безопасность)", value: "82%" },
+          { name: "Поиск альтернатив/генерация вариантов", value: "79%" },
+          { name: "Стратегии (эвристики vs последовательный анализ)", value: "85%" },
+        ],
+      },
+      {
+        name: "Восприятие и перцептивные навыки",
+        items: [
+          { name: "Пространственная ориентация/ментальные вращения", value: "86%" },
+          { name: "Восприятие времени/темпа", value: "90%" },
+          { name: "Пороговые/сенсомоторные реакции", value: "84%" },
+        ],
+      },
+      {
+        name: "Язык и коммуникация",
+        items: [
+          { name: "Понимание инструкций/текста", value: "87%" },
+          { name: "Вербальная беглость", value: "83%" },
+        ],
+      },
+      {
+        name: "Метакогниция",
+        items: [
+          { name: "Осознание собственных ошибок/ограничений", value: "92%" },
+          { name: "Умение проверять себя", value: "91%" },
+          { name: "Регуляция стратегии («заметил — изменил подход»)", value: "85%" },
+        ],
+      },
+    ],
+  },
+  personal: {
+    title: "Личностные и поведенческие способности",
+    level: "общий высокий уровень",
+    zones: [
+      {
+        name: "Базовые личностные черты",
+        items: [
+          { name: "Экстраверсия", value: "80%" },
+          { name: "Доброжелательность", value: "79%" },
+          { name: "Добросовестность", value: "87%" },
+          { name: "Нейротизм/эмоциональная стабильность", value: "83%" },
+          { name: "Открытость", value: "75%" },
+          { name: "Самооценка/уверенность", value: "81%" },
+        ],
+      },
+      {
+        name: "Саморегуляция",
+        items: [
+          { name: "Самодисциплина", value: "88%" },
+          { name: "Ответственность/исполнительность", value: "93%" },
+          { name: "Планомерность/организованность", value: "85%" },
+          { name: "Аккуратность/внимание к деталям", value: "83%" },
+          { name: "Следование правилам/процедурам", value: "79%" },
+          { name: "Надежность под рутиной", value: "75%" },
+          { name: "Надежность под нагрузкой", value: "87%" },
+        ],
+      },
+      {
+        name: "Стрессоустойчивость и адаптация",
+        items: [
+          { name: "Толерантность к стрессу", value: "93%" },
+          { name: "Устойчивость к неопределенности", value: "89%" },
+          { name: "Способности к восстановлению", value: "91%" },
+          { name: "Регуляция эмоций", value: "94%" },
+        ],
+      },
+      {
+        name: "Мотивация и рабочие драйверы",
+        items: [
+          { name: "Достиженческая мотивация", value: "77%" },
+          { name: "Ориентация на качество/безопасность/результат", value: "82%" },
+          { name: "Потребность в контроле/власти/признании", value: "72%" },
+          { name: "Локус контроля (внутренний/внешний)", value: "95%" },
+        ],
+      },
+      {
+        name: "Риск-поведение и безопасность",
+        items: [
+          { name: "Склонность к риску / риск-избегание", value: "71%" },
+          { name: "Импульсивность vs осторожность", value: "73%" },
+          { name: "Соблюдение безопасного поведения", value: "79%" },
+          { name: "Толерантность к отклонениям", value: "85%" },
+          { name: "Склонность к нарушению правил ради скорости/выгоды", value: "65%" },
+        ],
+      },
+      {
+        name: "Социальные и командные способности",
+        items: [
+          { name: "Кооперативность", value: "87%" },
+          { name: "Конфликтность", value: "65%" },
+          { name: "Ассертивность (умение говорить «стоп»)", value: "95%" },
+          { name: "Доверие", value: "76%" },
+          { name: "Подозрительность", value: "67%" },
+        ],
+      },
+      {
+        name: "Лидерство и управленческий стиль",
+        items: [
+          { name: "Стиль принятия решений", value: "авторитарный к коллегиальному как 6 к 4" },
+          { name: "Делегирование/контроль", value: "55%" },
+          { name: "Влияние/убеждение", value: "86%" },
+          { name: "Управление конфликтом", value: "90%" },
+          { name: "Управление изменениями", value: "89%" },
+        ],
+      },
+      {
+        name: "Этика, надежность, добропорядочность",
+        items: [
+          { name: "Честность (валидизационные шкалы)", value: "82%" },
+          { name: "Склонность к нарушениям", value: "55%" },
+          { name: "Правдивость ответов/социальная желательность (шкалы контроля)", value: "35%" },
+        ],
+      },
+    ],
+  },
+};
+
 const expandableSections = [
   {
     id: "development",
@@ -119,6 +302,8 @@ function Chevron({ open }: { open: boolean }) {
 export default function CoPilotProfilePage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [psychOpen, setPsychOpen] = useState(false);
+  const [psychResultsShown, setPsychResultsShown] = useState(false);
+  const [psychResultPanel, setPsychResultPanel] = useState<"cognitive" | "personal" | null>(null);
   const [allowancesOpen, setAllowancesOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -237,12 +422,78 @@ export default function CoPilotProfilePage() {
                   <Chevron open={psychOpen} />
                 </button>
                 {psychOpen && (
-                  <div className="mt-2 pl-3 border-l-2 border-[var(--accent)] text-sm text-slate-600">
+                  <div className="mt-2 pl-3 border-l-2 border-[var(--accent)] text-sm text-slate-600 space-y-4">
                     <p className="mb-2">
                       <strong>1-я группа прогноза</strong> — высокая предрасположенность к надёжному выполнению профессиональных задач.
                       Учитываются показатели по стабильности, стрессоустойчивости и работе в экипаже. Рекомендуется плановый мониторинг не реже раза в год.
                     </p>
-                    <Button size="sm">Запросить результаты</Button>
+                    <Button size="sm" onClick={() => setPsychResultsShown(true)}>
+                      Запросить результаты
+                    </Button>
+                    {psychResultsShown && (
+                      <div className="space-y-2 mt-4">
+                        {/* Плашка: Когнитивные способности */}
+                        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-white)] overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setPsychResultPanel(psychResultPanel === "cognitive" ? null : "cognitive")}
+                            className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-slate-50/80 transition-colors"
+                          >
+                            <span className="font-semibold text-slate-800">
+                              {psychologicalResults.cognitive.title} — {psychologicalResults.cognitive.level}
+                            </span>
+                            <Chevron open={psychResultPanel === "cognitive"} />
+                          </button>
+                          {psychResultPanel === "cognitive" && (
+                            <div className="px-4 pb-4 pt-0 border-t border-[var(--border)] space-y-4">
+                              {psychologicalResults.cognitive.zones.map((zone) => (
+                                <div key={zone.name}>
+                                  <div className="font-medium text-slate-700 text-sm mb-2">{zone.name}</div>
+                                  <ul className="space-y-1 text-sm">
+                                    {zone.items.map((item) => (
+                                      <li key={item.name} className="flex justify-between gap-4 text-slate-600">
+                                        <span>{item.name}</span>
+                                        <span className="shrink-0 font-medium text-slate-800">{item.value}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {/* Плашка: Личностные и поведенческие способности */}
+                        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-white)] overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setPsychResultPanel(psychResultPanel === "personal" ? null : "personal")}
+                            className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-slate-50/80 transition-colors"
+                          >
+                            <span className="font-semibold text-slate-800">
+                              {psychologicalResults.personal.title} — {psychologicalResults.personal.level}
+                            </span>
+                            <Chevron open={psychResultPanel === "personal"} />
+                          </button>
+                          {psychResultPanel === "personal" && (
+                            <div className="px-4 pb-4 pt-0 border-t border-[var(--border)] space-y-4">
+                              {psychologicalResults.personal.zones.map((zone) => (
+                                <div key={zone.name}>
+                                  <div className="font-medium text-slate-700 text-sm mb-2">{zone.name}</div>
+                                  <ul className="space-y-1 text-sm">
+                                    {zone.items.map((item) => (
+                                      <li key={item.name} className="flex justify-between gap-4 text-slate-600">
+                                        <span>{item.name}</span>
+                                        <span className="shrink-0 font-medium text-slate-800">{item.value}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

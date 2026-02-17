@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 
 const years = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
 
-const SERIES: { key: string; label: string; color: string; values: number[] }[] = [
+const SERIES_DEFAULT: { key: string; label: string; color: string; values: number[] }[] = [
   { key: "company", label: "Общий тренд в компании", color: "#64748b", values: [6.2, 6, 5.8, 6.2, 6.3, 6.2, 6, 5.8] },
   { key: "pilots", label: "Тренд Летной службы", color: "#2563eb", values: [6.5, 6.3, 6.1, 6.5, 6.6, 6.5, 6.2, 6] },
   { key: "b777", label: "Тренд Наземного обслуживания", color: "#0d9488", values: [6.6, 6.4, 6.2, 6.6, 6.7, 6.6, 6.2, 5.9] },
@@ -13,16 +13,26 @@ const SERIES: { key: string; label: string; color: string; values: number[] }[] 
   { key: "you", label: "Тренд менеджмента", color: "var(--accent)", values: [7.5, 6.5, 6, 7, 7, 7, 6.5, 5.5] },
 ];
 
-const defaultSelected = new Set(SERIES.map((s) => s.key));
+// Вариант для Employee CoPilot — Тренды компании (только подписи, данные те же)
+const SERIES_COPILOT: { key: string; label: string; color: string; values: number[] }[] = [
+  { key: "company", label: "Общий тренд в компании", color: "#64748b", values: [6.2, 6, 5.8, 6.2, 6.3, 6.2, 6, 5.8] },
+  { key: "pilots", label: "Тренд Летной службы", color: "#2563eb", values: [6.5, 6.3, 6.1, 6.5, 6.6, 6.5, 6.2, 6] },
+  { key: "b777", label: "Тренд отряда В-777", color: "#0d9488", values: [6.6, 6.4, 6.2, 6.6, 6.7, 6.6, 6.2, 5.9] },
+  { key: "second", label: "Тренд вторых пилотов", color: "#ea580c", values: [6.4, 6.2, 6, 6.4, 6.5, 6.4, 6, 5.6] },
+  { key: "secondB777", label: "Тренд вторых пилотов В-777", color: "#7c3aed", values: [6.55, 6.35, 6.1, 6.55, 6.65, 6.5, 6.1, 5.75] },
+  { key: "you", label: "Мой тренд", color: "var(--accent)", values: [7.5, 6.5, 6, 7, 7, 7, 6.5, 5.5] },
+];
+
 
 const CHART_WIDTH = 520;
 const CHART_HEIGHT = 260;
 const PADDING = { top: 16, right: 16, bottom: 28, left: 32 };
 
-type Props = { compact?: boolean; fullWidth?: boolean };
+type Props = { compact?: boolean; fullWidth?: boolean; variant?: "default" | "copilot" };
 
-export default function ReliabilityTrendsChart({ compact = false, fullWidth = false }: Props) {
-  const [selected, setSelected] = useState<Set<string>>(defaultSelected);
+export default function ReliabilityTrendsChart({ compact = false, fullWidth = false, variant = "default" }: Props) {
+  const SERIES = variant === "copilot" ? SERIES_COPILOT : SERIES_DEFAULT;
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(SERIES.map((s) => s.key)));
   const width = compact ? 320 : CHART_WIDTH;
   const height = compact ? 200 : CHART_HEIGHT;
   const padding = PADDING;

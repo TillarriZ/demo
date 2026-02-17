@@ -5,50 +5,218 @@ import Link from "next/link";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import ReliabilityTrendsChart from "@/app/copilot/trends/ReliabilityTrendsChart";
-
-const RISK_MATRIX_COLORS: Record<number, string> = {
-  1: "#b5d1ad", 2: "#b5d1ad", 3: "#8db881", 4: "#8db881", 5: "#79A471", 6: "#79A471",
-  7: "#638e59", 8: "#638e59", 9: "#3b692f", 10: "#3b692f", 11: "#95c740", 12: "#95c740",
-  13: "#E4BA6A", 14: "#E4BA6A", 15: "#E4BA6A",
-  16: "#cc0000", 17: "#cc0000", 18: "#cc0000", 19: "#cc0000", 20: "#cc0000",
-  21: "#990000", 22: "#990000", 23: "#990000", 24: "#990000", 25: "#990000",
-};
-
-const RISK_MATRIX_DISPLAY: Record<string, number> = {
-  "5,1": 5, "5,2": 10, "5,3": 3, "5,4": 2, "5,5": 1,
-  "4,1": 4, "4,2": 8, "4,3": 6, "4,4": 4, "4,5": 2,
-  "3,1": 15, "3,2": 12, "3,3": 9, "3,4": 6, "3,5": 3,
-  "2,1": 20, "2,2": 16, "2,3": 12, "2,4": 8, "2,5": 10,
-  "1,1": 25, "1,2": 20, "1,3": 15, "1,4": 4, "1,5": 5,
-};
-
-function RiskMatrixGrid({ className = "" }: { className?: string }) {
-  return (
-    <div className={`grid grid-cols-5 gap-0.5 ${className}`}>
-      {[5, 4, 3, 2, 1].map((imp) =>
-        [1, 2, 3, 4, 5].map((lik) => {
-          const score = imp * lik;
-          const displayVal = RISK_MATRIX_DISPLAY[`${imp},${lik}`] ?? score;
-          const bg = RISK_MATRIX_COLORS[score] ?? "#e6e6e6";
-          const isRed = score >= 16;
-          return (
-            <div key={`${imp}-${lik}`} className={`aspect-square rounded flex items-center justify-center text-[10px] font-semibold ${isRed ? "text-white" : "text-slate-800"}`} style={{ backgroundColor: bg }}>
-              {displayVal}
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-}
+import AnomaliesSignalsSankey from "./AnomaliesSignalsSankey";
+import RiskMatrix from "@/components/RiskMatrix";
 
 type Panel = "hf" | "simulator" | "monitor" | null;
+
+// Параметры Human Factor оптимизации (по лучшим практикам RMS в авиации)
+const HF_PARAM_OPTIONS = {
+  distance: [
+    { value: "min", label: "Минимальная" },
+    { value: "low", label: "Низкая" },
+    { value: "medium", label: "Средняя" },
+    { value: "high", label: "Высокая" },
+  ],
+  timeBetweenTasks: [
+    { value: "0-5", label: "0–5 мин" },
+    { value: "5-15", label: "5–15 мин" },
+    { value: "15-30", label: "15–30 мин" },
+    { value: "30+", label: "30+ мин" },
+  ],
+  workloadLevel: [
+    { value: "low", label: "Низкая" },
+    { value: "medium", label: "Средняя" },
+    { value: "high", label: "Высокая" },
+    { value: "peak", label: "Пиковая" },
+  ],
+  crewIntersection: [
+    { value: "none", label: "Без пересечений" },
+    { value: "minimal", label: "Минимальное" },
+    { value: "moderate", label: "Умеренное" },
+    { value: "high", label: "Частое" },
+  ],
+  compatibility: [
+    { value: "strict", label: "Строгая (по квалификации)" },
+    { value: "preferred", label: "Предпочтительные пары" },
+    { value: "flexible", label: "Гибкая" },
+    { value: "any", label: "Любая" },
+  ],
+  executionTime: [
+    { value: "tight", label: "Жёсткие окна" },
+    { value: "normal", label: "Норма" },
+    { value: "buffer", label: "С буфером" },
+    { value: "flex", label: "Гибкие окна" },
+  ],
+  delays: [
+    { value: "none", label: "Не учитывать" },
+    { value: "low", label: "Низкий риск" },
+    { value: "medium", label: "Средний риск" },
+    { value: "high", label: "Высокий риск" },
+  ],
+  resourceAvailability: [
+    { value: "current", label: "Текущая укомплектованность" },
+    { value: "with_reserve", label: "С учётом резерва" },
+    { value: "planned", label: "Плановые отпуска/больничные" },
+    { value: "min_staff", label: "Минимальный состав" },
+  ],
+} as const;
+
+const PRIMARY_CRITERIA = [
+  { id: "distance", label: "Расстояние" },
+  { id: "timeBetweenTasks", label: "Время между задачами" },
+  { id: "workloadLevel", label: "Уровень нагрузки" },
+  { id: "crewIntersection", label: "Пересечение с экипажем" },
+  { id: "compatibility", label: "Совместимость" },
+  { id: "executionTime", label: "Время для выполнения" },
+  { id: "delays", label: "Задержки" },
+  { id: "resourceAvailability", label: "Наличие ресурсов" },
+] as const;
+
+type ScenarioResult = {
+  id: number;
+  name: string;
+  coveragePercent: number;
+  scheduleCompliancePercent: number;
+  cost: number;
+  budgetStatus: "within" | "under" | "over";
+  additionalResourcesNeeded: boolean;
+  additionalResourcesCost: number;
+  delayPropagationRisk: string;
+  regulatoryCompliance: string;
+  reserveCoverage: string;
+  /** Шаги для реализации сценария */
+  implementationSteps: string[];
+};
+
+// Сотрудник: имя, локация, статус готовности
+type AssignedStaff = { name: string; location: string; readiness: "Готов" | "В пути" | "Занят" | "Не готов" | "—" };
+
+// Задача с детализацией по сотрудникам и альтернативам
+type TaskDetail = {
+  id: string;
+  name: string;
+  resource: string;
+  status: string;
+  slot: string;
+  assigned: AssignedStaff[];
+  alternatives: AssignedStaff[];
+};
+
+const SAMPLE_TASKS: TaskDetail[] = [
+  {
+    id: "T1",
+    name: "Брифинг экипажа SY-2407",
+    resource: "Экипаж 12",
+    status: "Назначено",
+    slot: "06:00–06:30",
+    assigned: [
+      { name: "Иванов А.П. (КВС)", location: "Брифинг-зал 2", readiness: "Готов" },
+      { name: "Петрова Е.С. (ВП)", location: "Брифинг-зал 2", readiness: "Готов" },
+      { name: "Сидоров М.И. (Штурман)", location: "Брифинг-зал 2", readiness: "В пути" },
+    ],
+    alternatives: [
+      { name: "Козлов В.Н. (КВС)", location: "Перрон 3", readiness: "Готов" },
+      { name: "Новикова О.Л. (ВП)", location: "Офис экипажей", readiness: "Готов" },
+    ],
+  },
+  {
+    id: "T2",
+    name: "Подготовка ВС B-777",
+    resource: "Наземная бригада A",
+    status: "В работе",
+    slot: "06:15–07:00",
+    assigned: [
+      { name: "Груздев Д.В.", location: "Перрон 1, стойка 12", readiness: "Готов" },
+      { name: "Волкова Т.А.", location: "Перрон 1, стойка 12", readiness: "Готов" },
+      { name: "Морозов К.С.", location: "Склад ЗИП", readiness: "В пути" },
+    ],
+    alternatives: [
+      { name: "Белов А.И.", location: "Перрон 2", readiness: "Готов" },
+      { name: "Соколова Н.П.", location: "Наземная база", readiness: "Занят" },
+    ],
+  },
+  {
+    id: "T3",
+    name: "Заправка",
+    resource: "—",
+    status: "Ожидание",
+    slot: "06:45–07:15",
+    assigned: [{ name: "—", location: "—", readiness: "—" }],
+    alternatives: [
+      { name: "Топливная бригада 1 (Федоров, Кузнецов)", location: "Топливная база", readiness: "Занят" },
+      { name: "Топливная бригада 2 (Орлова, Лебедев)", location: "Перрон 5", readiness: "Готов" },
+    ],
+  },
+  {
+    id: "T4",
+    name: "Погрузка багажа",
+    resource: "Наземная бригада B",
+    status: "Назначено",
+    slot: "06:30–07:00",
+    assigned: [
+      { name: "Киселёв Р.О.", location: "Конвейер багажа, зона B", readiness: "Готов" },
+      { name: "Павлова И.Г.", location: "Конвейер багажа, зона B", readiness: "В пути" },
+    ],
+    alternatives: [
+      { name: "Андреев С.М.", location: "Зона выдачи", readiness: "Готов" },
+      { name: "Михайлова Л.К.", location: "Склад ручной клади", readiness: "Готов" },
+    ],
+  },
+  {
+    id: "T5",
+    name: "ATC-слот вылета",
+    resource: "Диспетчерская смена 1",
+    status: "Назначено",
+    slot: "07:00–07:30",
+    assigned: [
+      { name: "Диспетчер вылета: Смирнов П.А.", location: "Башня УВД, сектор вылетов", readiness: "Готов" },
+      { name: "Координатор слотов: Егорова В.Д.", location: "Башня УВД, пульт 4", readiness: "Готов" },
+    ],
+    alternatives: [
+      { name: "Диспетчер: Романов И.С.", location: "Башня УВД, сектор вылетов", readiness: "Готов" },
+      { name: "Координатор: Калинина М.В.", location: "Резервная смена", readiness: "В пути" },
+    ],
+  },
+  {
+    id: "T6",
+    name: "Обслуживание рейса SY-2408",
+    resource: "—",
+    status: "Не распределено",
+    slot: "08:00–09:00",
+    assigned: [{ name: "—", location: "—", readiness: "—" }],
+    alternatives: [
+      { name: "Наземная бригада A (после T2)", location: "Перрон 1", readiness: "Готов" },
+      { name: "Наземная бригада C", location: "Перрон 4", readiness: "Готов" },
+      { name: "Резервная бригада", location: "База", readiness: "Не готов" },
+    ],
+  },
+];
 
 export default function DigitalTwinPage() {
   const [panel, setPanel] = useState<Panel>(null);
   const [simInput, setSimInput] = useState({ process: "", change: "", budget: "" });
   const [simResult, setSimResult] = useState<{ risk: string; cost: string; corrections: string[] } | null>(null);
   const [rmsScenarios, setRmsScenarios] = useState<string[]>([]);
+
+  // Human Factor оптимизация: настройки и сценарии
+  const [hfSettingsOpen, setHfSettingsOpen] = useState(false);
+  const [hfParams, setHfParams] = useState({
+    distance: "medium",
+    timeBetweenTasks: "15-30",
+    workloadLevel: "medium",
+    crewIntersection: "moderate",
+    compatibility: "preferred",
+    executionTime: "normal",
+    delays: "medium",
+    resourceAvailability: "current",
+  });
+  const [primaryCriterion, setPrimaryCriterion] = useState<string>("resourceAvailability");
+  const [scenariosLoading, setScenariosLoading] = useState(false);
+  const [scenarios, setScenarios] = useState<ScenarioResult[] | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioResult | null>(null);
+  const [personnelBudget, setPersonnelBudget] = useState(280000);
+  const [selectedTask, setSelectedTask] = useState<TaskDetail | null>(null);
 
   return (
     <div className="space-y-6">
@@ -91,51 +259,587 @@ export default function DigitalTwinPage() {
         <Card className="border-l-4 border-l-[var(--accent)]">
           <CardHeader className="flex flex-row items-center justify-between">
             <h2 className="font-semibold text-slate-800">Human Factor оптимизация</h2>
-            <button type="button" onClick={() => setPanel(null)} className="text-slate-400 hover:text-slate-600 text-sm">Свернуть</button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setHfSettingsOpen(true)}>
+                Настройки модуля
+              </Button>
+              <button type="button" onClick={() => setPanel(null)} className="text-slate-400 hover:text-slate-600 text-sm">Свернуть</button>
+            </div>
           </CardHeader>
-          <CardBody className="pt-0">
-            <p className="text-sm text-slate-600 mb-4">AI-модуль разрабатывает сценарии для RMS (распределение ресурсов) на основе данных по Human Factor.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <p className="text-xs font-semibold text-slate-500 mb-2">Входные данные HF</p>
-                <ul className="text-xs text-slate-700 space-y-1">
-                  <li>• Усталость по сменам: 65% (пик 15:00–18:00)</li>
-                  <li>• Укомплектованность ATC: 70%</li>
-                  <li>• Тренды надёжности по службам</li>
-                  <li>• Инциденты за 30 дней</li>
-                </ul>
+          <CardBody className="pt-0 space-y-6">
+            <p className="text-sm text-slate-600">
+              AI-модуль разрабатывает сценарии для RMS (распределение ресурсов) на основе данных по Human Factor. Ниже — базовая часть распределения задач (по лучшим практикам RMS в авиации).
+            </p>
+
+            {/* Базовая часть: распределение задач (RMS-стиль) */}
+            <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+              <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">Распределение задач — текущее состояние</h3>
+                <span className="text-xs text-slate-500">Источник: интеграция с RMS / Flight Info</span>
               </div>
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <p className="text-xs font-semibold text-slate-500 mb-2">Параметры генерации</p>
-                <label className="flex items-center gap-2 text-xs text-slate-700">
-                  <input type="checkbox" defaultChecked className="rounded" />
-                  Учитывать пиковые окна
-                </label>
-                <label className="flex items-center gap-2 text-xs text-slate-700 mt-1">
-                  <input type="checkbox" defaultChecked className="rounded" />
-                  Резерв по усталости
-                </label>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="text-left py-2.5 px-3 font-medium text-slate-600">Задача</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-slate-600">Временное окно</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-slate-600">Назначенный ресурс</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-slate-600">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SAMPLE_TASKS.map((t) => (
+                      <tr
+                        key={t.id}
+                        onClick={() => setSelectedTask(t)}
+                        className="border-b border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-colors"
+                      >
+                        <td className="py-2 px-3 text-slate-800">{t.name}</td>
+                        <td className="py-2 px-3 text-slate-600">{t.slot}</td>
+                        <td className="py-2 px-3 text-slate-700">{t.resource}</td>
+                        <td className="py-2 px-3">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                              t.status === "Назначено" ? "bg-emerald-100 text-emerald-800" :
+                              t.status === "В работе" ? "bg-amber-100 text-amber-800" :
+                              t.status === "Ожидание" ? "bg-slate-100 text-slate-700" :
+                              "bg-red-50 text-red-700"
+                            }`}
+                          >
+                            {t.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 space-y-1">
+                <p>Покрытие задач ресурсами: 4 из 6 (67%). Цель сценариев — повысить покрытие и соответствие расписанию при заданных ограничениях.</p>
+                <p className="text-slate-400">Клик по строке задачи — детали: назначенные сотрудники, локация, статус готовности и альтернативные варианты.</p>
               </div>
             </div>
-            <Button onClick={() => setRmsScenarios([
-              "Увеличить слот ATC на 2 диспетчера в окне 06:00–10:00",
-              "Резерв наземного обслуживания +1 бригада 11:00–14:00",
-              "Сдвиг брифинга экипажа SY-2407 на −15 мин",
-            ])}>
-              Сгенерировать сценарии RMS
-            </Button>
-            {rmsScenarios.length > 0 && (
-              <div className="mt-4 p-4 rounded-lg border border-[var(--accent)] bg-[var(--accent-light)]/30">
-                <p className="text-xs font-semibold text-slate-700 mb-2">Рекомендованные сценарии</p>
-                <ul className="text-sm text-slate-700 space-y-1 list-disc list-inside">
-                  {rmsScenarios.map((s, i) => (
-                    <li key={i}>{s}</li>
+
+            {/* Модальное окно: детали задачи — сотрудники, локация, готовность, альтернативы */}
+            {selectedTask && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setSelectedTask(null)}>
+                <div
+                  className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-slate-200"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                    <h3 className="text-lg font-semibold text-slate-800">{selectedTask.name}</h3>
+                    <button type="button" onClick={() => setSelectedTask(null)} className="p-1 rounded hover:bg-slate-100 text-slate-500" aria-label="Закрыть">✕</button>
+                  </div>
+                  <div className="p-6 space-y-5">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">Временное окно</span>
+                        <span className="font-medium text-slate-800">{selectedTask.slot}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">Статус</span>
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                            selectedTask.status === "Назначено" ? "bg-emerald-100 text-emerald-800" :
+                            selectedTask.status === "В работе" ? "bg-amber-100 text-amber-800" :
+                            selectedTask.status === "Ожидание" ? "bg-slate-100 text-slate-700" :
+                            "bg-red-50 text-red-700"
+                          }`}
+                        >
+                          {selectedTask.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-800 mb-2">Назначенные сотрудники</h4>
+                      <div className="rounded-lg border border-slate-200 overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                              <th className="text-left py-2 px-3 font-medium text-slate-600">Сотрудник</th>
+                              <th className="text-left py-2 px-3 font-medium text-slate-600">Локация</th>
+                              <th className="text-left py-2 px-3 font-medium text-slate-600">Готовность</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedTask.assigned.map((s, i) => (
+                              <tr key={i} className="border-b border-slate-100 last:border-0">
+                                <td className="py-2 px-3 text-slate-800">{s.name}</td>
+                                <td className="py-2 px-3 text-slate-600">{s.location}</td>
+                                <td className="py-2 px-3">
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                                      s.readiness === "Готов" ? "bg-emerald-100 text-emerald-800" :
+                                      s.readiness === "В пути" ? "bg-amber-100 text-amber-800" :
+                                      s.readiness === "Занят" ? "bg-slate-100 text-slate-700" :
+                                      s.readiness === "Не готов" ? "bg-red-50 text-red-700" :
+                                      "text-slate-400"
+                                    }`}
+                                  >
+                                    {s.readiness}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-800 mb-2">Альтернативные варианты по сотрудникам</h4>
+                      <p className="text-xs text-slate-500 mb-2">Возможные замены при необходимости перераспределения</p>
+                      <div className="rounded-lg border border-slate-200 overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                              <th className="text-left py-2 px-3 font-medium text-slate-600">Сотрудник / бригада</th>
+                              <th className="text-left py-2 px-3 font-medium text-slate-600">Локация</th>
+                              <th className="text-left py-2 px-3 font-medium text-slate-600">Готовность</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedTask.alternatives.map((s, i) => (
+                              <tr key={i} className="border-b border-slate-100 last:border-0">
+                                <td className="py-2 px-3 text-slate-800">{s.name}</td>
+                                <td className="py-2 px-3 text-slate-600">{s.location}</td>
+                                <td className="py-2 px-3">
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                                      s.readiness === "Готов" ? "bg-emerald-100 text-emerald-800" :
+                                      s.readiness === "В пути" ? "bg-amber-100 text-amber-800" :
+                                      s.readiness === "Занят" ? "bg-slate-100 text-slate-700" :
+                                      s.readiness === "Не готов" ? "bg-red-50 text-red-700" :
+                                      "text-slate-400"
+                                    }`}
+                                  >
+                                    {s.readiness}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                    <Button variant="secondary" onClick={() => setSelectedTask(null)}>Закрыть</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Запуск разработки сценариев */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                disabled={scenariosLoading}
+                onClick={async () => {
+                  setScenariosLoading(true);
+                  setScenarios(null);
+                  await new Promise((r) => setTimeout(r, 1800));
+                  setScenarios([
+                    {
+                      id: 1,
+                      name: "Минимизация расстояний",
+                      coveragePercent: 92,
+                      scheduleCompliancePercent: 88,
+                      cost: 265000,
+                      budgetStatus: "within",
+                      additionalResourcesNeeded: false,
+                      additionalResourcesCost: 0,
+                      delayPropagationRisk: "Низкий",
+                      regulatoryCompliance: "100%",
+                      reserveCoverage: "Достаточный",
+                      implementationSteps: [
+                        "Перераспределить наземные бригады по зонам так, чтобы минимизировать переходы между объектами.",
+                        "Закрепить за бригадой A сектор 1 (перрон 1–3), за бригадой B — сектор 2 (перрон 4–6).",
+                        "Внести изменения в RMS: обновить зоны обслуживания и приоритеты назначения по расстоянию.",
+                        "Провести брифинг с руководителями смен о новых зонах ответственности.",
+                      ],
+                    },
+                    {
+                      id: 2,
+                      name: "Баланс нагрузки и совместимости",
+                      coveragePercent: 95,
+                      scheduleCompliancePercent: 91,
+                      cost: 278000,
+                      budgetStatus: "within",
+                      additionalResourcesNeeded: false,
+                      additionalResourcesCost: 0,
+                      delayPropagationRisk: "Низкий",
+                      regulatoryCompliance: "100%",
+                      reserveCoverage: "Достаточный",
+                      implementationSteps: [
+                        "Загрузить в модуль HF матрицу совместимости экипажей (предпочтительные пары и ограничения).",
+                        "Настроить веса «нагрузка» и «совместимость» в алгоритме распределения в RMS.",
+                        "Ввести лимиты непрерывной работы без перерыва (не более 4 ч в пиковой нагрузке).",
+                        "Запустить пересчёт расписания на следующую неделю и согласовать с профсоюзом/кадровой службой.",
+                      ],
+                    },
+                    {
+                      id: 3,
+                      name: "Максимальное покрытие расписания",
+                      coveragePercent: 98,
+                      scheduleCompliancePercent: 96,
+                      cost: 312000,
+                      budgetStatus: "over",
+                      additionalResourcesNeeded: true,
+                      additionalResourcesCost: 32000,
+                      delayPropagationRisk: "Средний",
+                      regulatoryCompliance: "100%",
+                      reserveCoverage: "Расширенный",
+                      implementationSteps: [
+                        "Утвердить привлечение дополнительных ресурсов: +2 диспетчера ATC в окне 06:00–10:00, +1 наземная бригада 11:00–14:00.",
+                        "Оформить смены/подмены или привлечение внешнего персонала; заложить бюджет 32 000 в текущий период.",
+                        "Обновить слоты в Flight Information System и синхронизировать с RMS.",
+                        "Назначить ответственного за мониторинг выполнения сценария и отчёт по покрытию рейсов.",
+                      ],
+                    },
+                    {
+                      id: 4,
+                      name: "Экономия бюджета",
+                      coveragePercent: 85,
+                      scheduleCompliancePercent: 82,
+                      cost: 242000,
+                      budgetStatus: "under",
+                      additionalResourcesNeeded: false,
+                      additionalResourcesCost: 0,
+                      delayPropagationRisk: "Средний",
+                      regulatoryCompliance: "100%",
+                      reserveCoverage: "Минимальный",
+                      implementationSteps: [
+                        "Сократить резервные слоты в окнах с низкой вероятностью сбоев (по данным за последние 3 месяца).",
+                        "Объединить части задач наземного обслуживания в совмещённые смены при соблюдении ТК и норм отдыха.",
+                        "Закрепить в RMS приоритет «минимизация стоимости» и пересчитать раскладку на месяц.",
+                        "Усилить контроль соблюдения расписания и готовности к эскалации при сбоях (дежурный менеджер).",
+                      ],
+                    },
+                    {
+                      id: 5,
+                      name: "Минимизация пересечений экипажа",
+                      coveragePercent: 90,
+                      scheduleCompliancePercent: 87,
+                      cost: 271000,
+                      budgetStatus: "within",
+                      additionalResourcesNeeded: false,
+                      additionalResourcesCost: 0,
+                      delayPropagationRisk: "Низкий",
+                      regulatoryCompliance: "100%",
+                      reserveCoverage: "Достаточный",
+                      implementationSteps: [
+                        "Включить в настройках RMS ограничение на частую смену состава экипажа в одной смене.",
+                        "Сформировать стабильные мини-бригады (unit crewing) для рейсов SY-24xx на период не менее 2 недель.",
+                        "Внести в систему предпочтения экипажей по составу (если есть согласованные пары).",
+                        "Провести оценку риска распространения задержек после внедрения и при необходимости скорректировать резерв.",
+                      ],
+                    },
+                  ]);
+                  setScenariosLoading(false);
+                }}
+              >
+                {scenariosLoading ? "Разработка сценариев…" : "Запустить разработку сценариев"}
+              </Button>
+              {scenarios && (
+                <span className="text-sm text-slate-500">Получено сценариев: {scenarios.length}</span>
+              )}
+            </div>
+
+            {/* Результаты: 5 сценариев */}
+            {scenarios && scenarios.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-slate-800">Сценарии распределения ресурсов</h3>
+                <p className="text-xs text-slate-500">Нажмите на плашку сценария, чтобы открыть детали и шаги по реализации.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {scenarios.slice(0, 5).map((s) => (
+                    <button
+                      type="button"
+                      key={s.id}
+                      onClick={() => setSelectedScenario(s)}
+                      className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-[var(--accent)] transition-all text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                    >
+                      <h4 className="font-medium text-slate-800 mb-3">{s.name}</h4>
+                      <dl className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <dt className="text-slate-500">Покрытие задач ресурсом</dt>
+                          <dd className="font-semibold text-slate-800">{s.coveragePercent}%</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-slate-500">Соответствие расписанию</dt>
+                          <dd className="font-semibold text-slate-800">{s.scheduleCompliancePercent}%</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-slate-500">Стоимость</dt>
+                          <dd className="font-semibold">
+                            {s.cost.toLocaleString("ru-RU")}{" "}
+                            <span
+                              className={
+                                s.cost <= personnelBudget && s.cost >= personnelBudget * 0.9
+                                  ? "text-emerald-600"
+                                  : s.cost > personnelBudget
+                                    ? "text-amber-600"
+                                    : "text-slate-600"
+                              }
+                            >
+                              ({s.cost > personnelBudget ? "свыше бюджета" : s.cost < personnelBudget * 0.9 ? "ниже бюджета" : "в пределах бюджета"})
+                            </span>
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-slate-500">Доп. ресурс</dt>
+                          <dd className="font-medium">
+                            {s.additionalResourcesNeeded ? `Да, ${s.additionalResourcesCost.toLocaleString("ru-RU")}` : "Не требуется"}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-slate-500">Риск распространения задержек</dt>
+                          <dd className="text-slate-700">{s.delayPropagationRisk}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-slate-500">Соответствие нормативам</dt>
+                          <dd className="text-slate-700">{s.regulatoryCompliance}</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-slate-500">Резерв экипажа/персонала</dt>
+                          <dd className="text-slate-700">{s.reserveCoverage}</dd>
+                        </div>
+                      </dl>
+                      <p className="mt-3 text-xs text-[var(--accent)] font-medium">Подробнее →</p>
+                    </button>
                   ))}
-                </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Окно с деталями сценария и шагами реализации */}
+            {selectedScenario && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setSelectedScenario(null)}>
+                <div
+                  className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-slate-200"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+                    <h3 className="text-lg font-semibold text-slate-800">{selectedScenario.name}</h3>
+                    <button type="button" onClick={() => setSelectedScenario(null)} className="p-1 rounded hover:bg-slate-100 text-slate-500" aria-label="Закрыть">✕</button>
+                  </div>
+                  <div className="p-6 space-y-5">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">Покрытие задач</span>
+                        <span className="font-semibold text-slate-800">{selectedScenario.coveragePercent}%</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">Соответствие расписанию</span>
+                        <span className="font-semibold text-slate-800">{selectedScenario.scheduleCompliancePercent}%</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">Стоимость</span>
+                        <span className="font-semibold">{selectedScenario.cost.toLocaleString("ru-RU")} ₽</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">Доп. ресурс</span>
+                        <span className="font-medium">{selectedScenario.additionalResourcesNeeded ? `Да, ${selectedScenario.additionalResourcesCost.toLocaleString("ru-RU")} ₽` : "Не требуется"}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-800 mb-3">Что необходимо сделать для реализации сценария</h4>
+                      <ol className="space-y-2 list-decimal list-inside text-sm text-slate-700">
+                        {selectedScenario.implementationSteps.map((step, i) => (
+                          <li key={i} className="pl-1">{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+                    <Button variant="secondary" onClick={() => setSelectedScenario(null)}>Закрыть</Button>
+                  </div>
+                </div>
               </div>
             )}
           </CardBody>
         </Card>
+      )}
+
+      {/* Окно настроек Human Factor оптимизации */}
+      {hfSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setHfSettingsOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-800">Настройки модуля Human Factor оптимизация</h3>
+              <button type="button" onClick={() => setHfSettingsOpen(false)} className="p-1 rounded hover:bg-slate-100 text-slate-500">✕</button>
+            </div>
+            <div className="p-6 space-y-6">
+              <p className="text-sm text-slate-600">
+                Задайте параметры и выберите главный критерий для построения сценариев распределения ресурсов (по лучшим практикам RMS в авиации).
+              </p>
+
+              {/* Параметры — выпадающие списки */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Расстояние</span>
+                  <select
+                    value={hfParams.distance}
+                    onChange={(e) => setHfParams((p) => ({ ...p, distance: e.target.value }))}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800"
+                  >
+                    {HF_PARAM_OPTIONS.distance.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Время между задачами</span>
+                  <select
+                    value={hfParams.timeBetweenTasks}
+                    onChange={(e) => setHfParams((p) => ({ ...p, timeBetweenTasks: e.target.value }))}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800"
+                  >
+                    {HF_PARAM_OPTIONS.timeBetweenTasks.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Уровень нагрузки</span>
+                  <select
+                    value={hfParams.workloadLevel}
+                    onChange={(e) => setHfParams((p) => ({ ...p, workloadLevel: e.target.value }))}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800"
+                  >
+                    {HF_PARAM_OPTIONS.workloadLevel.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Пересечение с экипажем</span>
+                  <select
+                    value={hfParams.crewIntersection}
+                    onChange={(e) => setHfParams((p) => ({ ...p, crewIntersection: e.target.value }))}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800"
+                  >
+                    {HF_PARAM_OPTIONS.crewIntersection.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Совместимость</span>
+                  <select
+                    value={hfParams.compatibility}
+                    onChange={(e) => setHfParams((p) => ({ ...p, compatibility: e.target.value }))}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800"
+                  >
+                    {HF_PARAM_OPTIONS.compatibility.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Время для выполнения</span>
+                  <select
+                    value={hfParams.executionTime}
+                    onChange={(e) => setHfParams((p) => ({ ...p, executionTime: e.target.value }))}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800"
+                  >
+                    {HF_PARAM_OPTIONS.executionTime.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Задержки</span>
+                  <select
+                    value={hfParams.delays}
+                    onChange={(e) => setHfParams((p) => ({ ...p, delays: e.target.value }))}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800"
+                  >
+                    {HF_PARAM_OPTIONS.delays.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Наличие ресурсов</span>
+                  <select
+                    value={hfParams.resourceAvailability}
+                    onChange={(e) => setHfParams((p) => ({ ...p, resourceAvailability: e.target.value }))}
+                    className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800"
+                  >
+                    {HF_PARAM_OPTIONS.resourceAvailability.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {/* Колесико/ввод: бюджет персонала */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-500">Бюджет персонала (для сравнения со сценариями)</span>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={100000}
+                      max={500000}
+                      step={10000}
+                      value={personnelBudget}
+                      onChange={(e) => setPersonnelBudget(Number(e.target.value) || 280000)}
+                      className="w-32 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-slate-500 text-sm">₽</span>
+                    <input
+                      type="range"
+                      min={100000}
+                      max={500000}
+                      step={10000}
+                      value={personnelBudget}
+                      onChange={(e) => setPersonnelBudget(Number(e.target.value))}
+                      className="flex-1 max-w-[200px] h-2 rounded-lg appearance-none bg-slate-200 accent-[var(--accent)]"
+                    />
+                  </div>
+                </label>
+              </div>
+
+              {/* Главный критерий для сценариев */}
+              <div>
+                <span className="text-xs font-medium text-slate-500 block mb-2">Главный критерий для создания сценариев</span>
+                <div className="flex flex-wrap gap-2">
+                  {PRIMARY_CRITERIA.map((c) => (
+                    <label
+                      key={c.id}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${
+                        primaryCriterion === c.id
+                          ? "border-[var(--accent)] bg-[var(--accent-light)] text-slate-800"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="primaryCriterion"
+                        value={c.id}
+                        checked={primaryCriterion === c.id}
+                        onChange={() => setPrimaryCriterion(c.id)}
+                        className="sr-only"
+                      />
+                      {c.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="secondary" onClick={() => setHfSettingsOpen(false)}>Закрыть</Button>
+                <Button onClick={() => { setHfSettingsOpen(false); }}>Применить и закрыть</Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {panel === "simulator" && (
@@ -233,7 +937,7 @@ export default function DigitalTwinPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <h3 className="text-sm font-semibold text-slate-700 mb-2">Матрица рисков</h3>
-                <RiskMatrixGrid className="max-w-[280px]" />
+                <RiskMatrix maxWidth="280px" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-slate-700 mb-2">Показатели Human Factor (%)</h3>
@@ -266,6 +970,11 @@ export default function DigitalTwinPage() {
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Тренды проф. надёжности</h3>
               <p className="text-xs text-slate-600 mb-3">По компании: ↑2% · Диспетчерская служба: ↓1% · Наземное обслуживание: → · Лётная служба: ↑1%</p>
               <ReliabilityTrendsChart fullWidth />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700 mb-2">Аномалии и сигналы</h3>
+              <p className="text-xs text-slate-600 mb-3">Связь сигналов и аномалий с компонентами Human Factor</p>
+              <AnomaliesSignalsSankey />
             </div>
             <div className="p-4 rounded-lg bg-[#f6f6f6] border border-[#e6e6e6]">
               <h3 className="text-sm font-semibold text-slate-800 mb-2">Финансовые показатели по HF</h3>

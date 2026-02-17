@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Fragment, useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Button, Card, CardBody, Input, Badge } from "@/components/ui";
 
@@ -43,12 +43,222 @@ const POSSIBLE_CAUSES = [
   "Метеоусловия", "Загруженность воздушного пространства", "Техническая неисправность ВС", "Ошибка экипажа", "Неисправность наземного оборудования", "Проблемы с топливной системой", "Отказ навигационной системы", "Отказ связи", "Проблемы с инфраструктурой аэропорта", "Усталость экипажа", "Нарушения процедур безопасности", "Ошибка диспетчера", "Недостаточное обучение", "Недостаток опыта", "Усталость", "Стресс", "Отвлечение", "Недостаток коммуникации", "Нарушение процедуры", "Нехватка времени", "Организационные проблемы", "Другое",
 ];
 
-const HISTORY_ROWS = [
-  { date: "29.02.2024", name: "Нарушение порядка чек-листа", result: "Результат анализа", status: "Завершен" },
-  { date: "28.02.2024", name: "Отклонение от установленных процедур", result: "Результат анализа", status: "Завершен" },
-  { date: "27.02.2024", name: "Неверные действия экипажа", result: "Результат анализа", status: "Завершен" },
-  { date: "26.02.2024", name: "Задержка рейса SY-2407", result: "Результат анализа", status: "Завершен" },
-  { date: "25.02.2024", name: "Рассинхрон регистрации и загрузки", result: "Результат анализа", status: "Завершен" },
+type HistoryDetail = {
+  providedInfo: { label: string; value: string }[];
+  causalRelationships: string[];
+  hfComponents: string[];
+  costEstimate: { incident: string; annual: string };
+  recurrence: { probability: string; deteriorations: string[] };
+  riskModels: string[];
+  hypotheses: string[];
+  measures: string[];
+  achievedChanges: string | null;
+};
+
+const HISTORY_ROWS: Array<{
+  date: string;
+  name: string;
+  result: string;
+  status: string;
+  detail: HistoryDetail;
+}> = [
+  {
+    date: "29.02.2024",
+    name: "Нарушение порядка чек-листа",
+    result: "Результат анализа",
+    status: "Завершен",
+    detail: {
+      providedInfo: [
+        { label: "Тип инцидента", value: "Ошибка" },
+        { label: "Дата/время", value: "29.02.2024, 14:30" },
+        { label: "Подразделение", value: "Летные операции" },
+        { label: "Описание", value: "Пропуск пунктов чек-листа при предполётной подготовке" },
+        { label: "Затронутые системы", value: "Система планирования полетов, SOP/чек-листы" },
+        { label: "Метрики", value: "Соответствие процедурам" },
+        { label: "Критичность", value: "2 - Высокий" },
+        { label: "Смена", value: "Утренняя (08:00-16:00)" },
+        { label: "Операция", value: "Предполётная проверка" },
+        { label: "Связанные инциденты", value: "INC-2024-012, INC-2024-008" },
+      ],
+      causalRelationships: [
+        "Пропуск пунктов чек-листа → Неполная проверка → Риск полётной годности",
+        "Отвлечение при выполнении чек-листа → Снижение внимания к критичным пунктам",
+        "Скрытый фактор: спешка из-за давления на время оборота ВС",
+      ],
+      hfComponents: ["SOP/чек-листы и соблюдение процедур", "Коммуникации: брифинги/дебрифы", "Компетенции и обучение"],
+      costEstimate: { incident: "≈ 45 000 ₽ (задержка, перепроверка)", annual: "≈ 2,1 млн ₽ при 47 повторениях в год" },
+      recurrence: {
+        probability: "62% при сохранении текущих условий",
+        deteriorations: ["Рост количества пропусков при увеличении интенсивности", "Риск инцидента с тяжёлыми последствиями"],
+      },
+      riskModels: ["Bow-Tie", "Fishbone (Ишикава)", "FRAM (Functional Resonance Analysis)"],
+      hypotheses: [
+        "Недостаточная подготовка по работе с чек-листами в условиях дефицита времени",
+        "Отсутствие spotter-роли при выполнении предполётной проверки",
+      ],
+      measures: [
+        "Внедрить электронный чек-лист с напоминаниями о критичных пунктах",
+        "Ввести обязательную role-пару (читает / отмечает) при проверке",
+        "Обучить управлению временем и приоритизации в условиях давления",
+      ],
+      achievedChanges: "Электронный чек-лист внедрён с 15.03.2024. За первый месяц — снижение пропусков на 34%.",
+    },
+  },
+  {
+    date: "28.02.2024",
+    name: "Отклонение от установленных процедур",
+    result: "Результат анализа",
+    status: "Завершен",
+    detail: {
+      providedInfo: [
+        { label: "Тип инцидента", value: "Нарушение процедуры" },
+        { label: "Дата/время", value: "28.02.2024, 11:15" },
+        { label: "Подразделение", value: "Наземное обслуживание" },
+        { label: "Описание", value: "Работа на перроне без назначенного spotter" },
+        { label: "Участок", value: "Летное поле" },
+        { label: "Операция", value: "Заправка топливом" },
+        { label: "Критичность", value: "3 - Средний" },
+        { label: "Связанные инциденты", value: "INC-2024-015" },
+      ],
+      causalRelationships: [
+        "Отсутствие spotter → Снижение осведомлённости об опасностях → Почти-столкновение",
+        "Скрытый фактор: нехватка персонала в вечернюю смену",
+      ],
+      hfComponents: ["Планирование работ, JSA/TRA и Permit-to-Work", "Лидерство и культура безопасности", "Управление подрядчиками"],
+      costEstimate: { incident: "≈ 12 000 ₽", annual: "≈ 580 000 ₽ при 48 подобных отклонениях" },
+      recurrence: {
+        probability: "48%",
+        deteriorations: ["Рост тяжести при совпадении с другими факторами (погода, усталость)"],
+      },
+      riskModels: ["Bow-Tie", "5 Whys"],
+      hypotheses: [
+        "Дефицит персонала ведёт к упрощению процедур",
+        "Низкая осведомлённость о последствиях сокращения spotter-роли",
+      ],
+      measures: [
+        "Усилить контроль соблюдения Permit-to-Work",
+        "Провести брифинги по культуре «никогда не работать без spotter»",
+      ],
+      achievedChanges: null,
+    },
+  },
+  {
+    date: "27.02.2024",
+    name: "Неверные действия экипажа",
+    result: "Результат анализа",
+    status: "Завершен",
+    detail: {
+      providedInfo: [
+        { label: "Тип инцидента", value: "Ошибка экипажа" },
+        { label: "Дата/время", value: "27.02.2024, 06:45" },
+        { label: "Подразделение", value: "Летные операции" },
+        { label: "Описание", value: "Ошибка при вводе веса в FMS" },
+        { label: "Смена", value: "Ночная (00:00-08:00)" },
+        { label: "Позиции", value: "КВС, Второй пилот" },
+        { label: "Критичность", value: "2 - Высокий" },
+        { label: "Бизнес-процесс", value: "Предполётная подготовка" },
+      ],
+      causalRelationships: [
+        "Усталость в ночной смене → Снижение внимания → Ошибка ввода",
+        "Недостаточный cross-check → Пропуск неверного значения",
+        "Скрытый фактор: высокая загрузка экипажа в предыдущие дни",
+      ],
+      hfComponents: ["Управление усталостью и графиками (FRMS)", "Коммуникации: брифинги/дебрифы", "SOP/чек-листы"],
+      costEstimate: { incident: "≈ 85 000 ₽ (пересчёт, задержка вылета)", annual: "≈ 1,5 млн ₽" },
+      recurrence: {
+        probability: "55%",
+        deteriorations: ["Риск выхода за пределы центровки при повторении", "Недопустимая нагрузка на конструкцию"],
+      },
+      riskModels: ["HFACS", "FRAM", "Bow-Tie"],
+      hypotheses: [
+        "Нарушение лимитов FRMS повышает риск ошибок в ночных сменах",
+        "Процедура cross-check не всегда выполняется при нехватке времени",
+      ],
+      measures: [
+        "Аудит соблюдения FRMS и лимитов усталости",
+        "Усилить процедуру проверки веса и центровки (двойной ввод)",
+      ],
+      achievedChanges: "Информация об изменениях отсутствует.",
+    },
+  },
+  {
+    date: "26.02.2024",
+    name: "Задержка рейса SY-2407",
+    result: "Результат анализа",
+    status: "Завершен",
+    detail: {
+      providedInfo: [
+        { label: "Тип инцидента", value: "Задержка" },
+        { label: "Дата/время", value: "26.02.2024, 09:07" },
+        { label: "Подразделение", value: "Оперативное управление полетами" },
+        { label: "Описание", value: "Задержка 3ч 15м, Варязиск → Солнечск" },
+        { label: "Метрики", value: "Задержки рейсов (мин)" },
+        { label: "Критичность", value: "2 - Высокий" },
+        { label: "Смена", value: "Утренняя" },
+        { label: "Связанные инциденты", value: "INC-2024-003, INC-2024-009, INC-2024-011" },
+      ],
+      causalRelationships: [
+        "Нехватка персонала ATC ↔ Коммуникационные задержки (r=0,84)",
+        "Усталость экипажа ↔ Процедурные ошибки (r=0,76)",
+        "Скрытый фактор: метеоусловия и дефицит слотов de-icing",
+      ],
+      hfComponents: ["Управление усталостью (FRMS)", "Коммуникации", "Планирование работ", "SLA наземных служб"],
+      costEstimate: { incident: "≈ 320 000 ₽ (компенсации, топливо, слоты)", annual: "≈ 8,5 млн ₽ при 27 подобных задержек" },
+      recurrence: {
+        probability: "72% в сезон de-icing",
+        deteriorations: ["Риск переработки экипажа", "Потеря слотов", "Снижение NPS"],
+      },
+      riskModels: ["Bow-Tie", "Fishbone", "Корреляционный анализ"],
+      hypotheses: [
+        "Комплексный эффект: ATC + метео + de-icing создаёт каскад задержек",
+        "Недостаточная заблаговременность планирования при неблагоприятной погоде",
+      ],
+      measures: [
+        "Увеличить штат ATC в пиковые периоды",
+        "Внедрить мониторинг стресса персонала",
+        "Оптимизировать очередь de-icing и slot-swap",
+      ],
+      achievedChanges: "Согласовано увеличение смен ATC на 2 чел. с 01.04.2024. Пилотный мониторинг стресса запущен.",
+    },
+  },
+  {
+    date: "25.02.2024",
+    name: "Рассинхрон регистрации и загрузки",
+    result: "Результат анализа",
+    status: "Завершен",
+    detail: {
+      providedInfo: [
+        { label: "Тип инцидента", value: "Простой" },
+        { label: "Дата/время", value: "25.02.2024, 16:22" },
+        { label: "Подразделение", value: "Обработка багажа" },
+        { label: "Описание", value: "Расхождение данных DCS и системы загрузки багажа" },
+        { label: "Затронутые системы", value: "DCS, Система обработки багажа, Altea" },
+        { label: "Бизнес-процесс", value: "Обработка багажа" },
+        { label: "Критичность", value: "3 - Средний" },
+        { label: "Участок", value: "Багажный зал" },
+      ],
+      causalRelationships: [
+        "Задержка обновления DCS → Неверные данные загрузки → Дублирование проверок",
+        "Скрытый фактор: низкая надёжность интеграции между системами",
+      ],
+      hfComponents: ["Качество данных", "Коммуникации между службами", "Управление изменениями (интеграции)"],
+      costEstimate: { incident: "≈ 18 000 ₽", annual: "≈ 720 000 ₽" },
+      recurrence: {
+        probability: "40%",
+        deteriorations: ["Риск отправки багажа на неверный рейс при масштабировании сбоя"],
+      },
+      riskModels: ["STPA", "Fishbone"],
+      hypotheses: [
+        "Интерфейс DCS — багаж не синхронизируется при высокой нагрузке",
+        "Недостаточное обучение работе с ручным вводом при сбоях",
+      ],
+      measures: [
+        "Аудит интеграции DCS и системы багажа",
+        "Процедура ручной сверки при расхождении",
+      ],
+      achievedChanges: "Информация об изменениях отсутствует.",
+    },
+  },
 ];
 
 const ASSESSMENT_CATEGORIES = [
@@ -94,6 +304,7 @@ export default function RCAPage() {
   const [openSearch, setOpenSearch] = useState(false);
   const [openResults, setOpenResults] = useState(false);
   const [openHistory, setOpenHistory] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [personnelRows, setPersonnelRows] = useState([{ position: "", role: "" }]);
   const [relatedRows, setRelatedRows] = useState([{ number: "", date: "" }]);
@@ -547,10 +758,12 @@ export default function RCAPage() {
         {openHistory && (
           <CardBody className="pt-0 border-t border-[var(--border)]">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">История запросов</h3>
+            <p className="text-xs text-slate-500 mb-3">Нажмите на строку для просмотра деталей анализа</p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="text-left p-3 font-medium text-slate-700 w-8" />
                     <th className="text-left p-3 font-medium text-slate-700">Дата запроса</th>
                     <th className="text-left p-3 font-medium text-slate-700">Название инцидента</th>
                     <th className="text-left p-3 font-medium text-slate-700">Результат</th>
@@ -559,24 +772,127 @@ export default function RCAPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {HISTORY_ROWS.map((row, i) => (
-                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="p-3 text-slate-700">{row.date}</td>
-                      <td className="p-3 text-slate-700">{row.name}</td>
-                      <td className="p-3 text-slate-600">{row.result}</td>
-                      <td className="p-3">
-                        <Badge variant="default">{row.status}</Badge>
-                      </td>
-                      <td className="p-2 flex items-center gap-1">
-                        <button type="button" className="p-1.5 rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700" title="Просмотр">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        </button>
-                        <button type="button" className="p-1.5 rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700" title="Скачать">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {HISTORY_ROWS.map((row, i) => {
+                    const isExpanded = expandedHistoryId === i;
+                    return (
+                      <Fragment key={i}>
+                        <tr
+                          key={i}
+                          onClick={() => setExpandedHistoryId(isExpanded ? null : i)}
+                          className={`border-b border-slate-100 cursor-pointer transition-colors ${isExpanded ? "bg-slate-100" : "hover:bg-slate-50/50"}`}
+                        >
+                          <td className="p-2">
+                            <span className={`inline-block transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                          </td>
+                          <td className="p-3 text-slate-700">{row.date}</td>
+                          <td className="p-3 text-slate-700 font-medium">{row.name}</td>
+                          <td className="p-3 text-slate-600">{row.result}</td>
+                          <td className="p-3">
+                            <Badge variant="default">{row.status}</Badge>
+                          </td>
+                          <td className="p-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" className="p-1.5 rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700" title="Просмотр">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                            </button>
+                            <button type="button" className="p-1.5 rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700" title="Скачать">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr key={`${i}-detail`}>
+                            <td colSpan={6} className="p-0 bg-slate-50">
+                              <div className="p-6 space-y-6 text-sm">
+                                <h4 className="font-semibold text-slate-800 text-base">{row.name} — детали анализа</h4>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Предоставленная информация</h5>
+                                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600">
+                                    {row.detail.providedInfo.map((item, j) => (
+                                      <div key={j} className="flex gap-2">
+                                        <dt className="font-medium text-slate-600 shrink-0">{item.label}:</dt>
+                                        <dd>{item.value}</dd>
+                                      </div>
+                                    ))}
+                                  </dl>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Причинно-следственные связи и скрытые факторы</h5>
+                                  <ul className="list-disc list-inside text-slate-600 space-y-1">
+                                    {row.detail.causalRelationships.map((c, j) => (
+                                      <li key={j}>{c}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Компоненты HF, задействованные в инциденте</h5>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {row.detail.hfComponents.map((c, j) => (
+                                      <Badge key={j} variant="risk-low">{c}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Оценка стоимости</h5>
+                                  <div className="text-slate-600 space-y-1">
+                                    <p><strong>Инцидент:</strong> {row.detail.costEstimate.incident}</p>
+                                    <p><strong>Годовая оценка</strong> (при повторении): {row.detail.costEstimate.annual}</p>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Вероятность повторения без мер и возможные ухудшения</h5>
+                                  <p className="text-slate-600 mb-1"><strong>Вероятность:</strong> {row.detail.recurrence.probability}</p>
+                                  <ul className="list-disc list-inside text-slate-600">
+                                    {row.detail.recurrence.deteriorations.map((d, j) => (
+                                      <li key={j}>{d}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Применённые риск-модели для поиска</h5>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {row.detail.riskModels.map((m, j) => (
+                                      <span key={j} className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-xs">{m}</span>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Разработанные гипотезы для проверки</h5>
+                                  <ul className="list-disc list-inside text-slate-600 space-y-1">
+                                    {row.detail.hypotheses.map((h, j) => (
+                                      <li key={j}>{h}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Возможные мероприятия для исключения повторения</h5>
+                                  <ul className="list-disc list-inside text-slate-600 space-y-1">
+                                    {row.detail.measures.map((m, j) => (
+                                      <li key={j}>{m}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-medium text-slate-700 mb-2">Достигнутые изменения</h5>
+                                  <p className={`text-slate-600 ${row.detail.achievedChanges ? "" : "italic text-slate-500"}`}>
+                                    {row.detail.achievedChanges ?? "Информация об изменениях отсутствует."}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

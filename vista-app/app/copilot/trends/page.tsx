@@ -46,7 +46,7 @@ export default function CoPilotTrendsPage() {
         <Card className="order-1 lg:order-2">
           <CardBody>
             <h2 className="text-sm font-semibold text-slate-700 mb-4">Профессиональная надёжность: тренды</h2>
-            <ReliabilityTrendsChart />
+            <ReliabilityTrendsChart variant="copilot" />
           </CardBody>
         </Card>
       </div>

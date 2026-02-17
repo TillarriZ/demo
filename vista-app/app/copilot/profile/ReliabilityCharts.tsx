@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import Button from "@/components/ui/Button";
 
 const RADAR_LABELS = [
   "Невнимательность",
@@ -38,11 +40,225 @@ const trainingData = [
   { label: "Опасные грузы", value: 96 },
 ];
 
-// Аудио: состояние по записям — норма (true) / аномалия (false) по сессиям (добавлены две строки)
+// Периоды работы второго пилота B777
+type AudioPeriod =
+  | "Брифинг"
+  | "Подготовка кабины"
+  | "Взлёт"
+  | "Набор высоты"
+  | "Посадка"
+  | "Завершение рейса / чек-лист"
+  | "Дебрифинг"
+  | "Тренажёр"
+  | "Тренинг по обучению";
+
+export type AudioAnomalyDetails = {
+  deviationType: "Построение предложений" | "Интонации" | "Скорость речи";
+  period: AudioPeriod;
+  hypotheses: string[];
+  comparisonData: string[];
+  recommendations: string[];
+};
+
+// Детали по каждой аномалии (индекс = позиция в сетке)
+const audioAnomalyDetails: Record<number, AudioAnomalyDetails> = {
+  3: {
+    deviationType: "Интонации",
+    period: "Подготовка кабины",
+    hypotheses: [
+      "Накануне — ночной рейс (прилёт 03:45), сон 4.5 ч.",
+      "Снижение тонуса голоса, монотонность — возможная связь с усталостью",
+      "Показатель «Усталость» по психотестированию: 6.2/10 (выше нормы)",
+    ],
+    comparisonData: [
+      "Базовая запись того же периода 2 недели назад — норма",
+      "Сравнение с типовым паттерном при достаточном отдыхе (>7 ч сна)",
+      "Нагрузка при получении допуска: 12 рейсов за 14 дней",
+    ],
+    recommendations: [
+      "Увеличить межрейсовый отдых после ночных секторов",
+      "Краткий чек-лист перед подготовкой кабины — восстановление фокуса",
+      "При повторении — консультация по режиму сна и усталости",
+    ],
+  },
+  8: {
+    deviationType: "Построение предложений",
+    period: "Набор высоты",
+    hypotheses: [
+      "Маленький перерыв между рейсами (8 ч) — недостаточное восстановление",
+      "Фрагментированная речь, пропуски в стандартных фразах",
+      "Связь с нагрузкой: 3 ночных рейса подряд в предыдущие сутки",
+    ],
+    comparisonData: [
+      "Показатели психологического тестирования: внимание 5.8/10",
+      "Сравнение с CRM-протоколом «Читай- backs» — отклонение от эталона",
+      "Данные планирования: перерыв 8 ч между DHD и следующим рейсом",
+    ],
+    recommendations: [
+      "Напомнить о достаточном межрейсовом отдыхе (min 12 ч для ночных)",
+      "Повторение CRM-модуля по коммуникации в критических фазах",
+      "Рассмотреть ротацию при накопленной нагрузке",
+    ],
+  },
+  13: {
+    deviationType: "Интонации",
+    period: "Посадка",
+    hypotheses: [
+      "Перед сессией — прохождение медкомиссии (стресс-фактор)",
+      "Повышенная напряжённость в голосе, учащение пауз",
+      "Период совпал с истечением допуска и процедурой продления",
+    ],
+    comparisonData: [
+      "Сравнение с записями посадок в стабильный период — норма",
+      "Нагрузка при получении допуска: подготовка к проверке, медосмотр",
+      "Психотестирование: стресс 5.5/10 за неделю до сессии",
+    ],
+    recommendations: [
+      "Избегать планирования критических фаз сразу после медкомиссии",
+      "Краткий брифинг с КВС при известных стресс-факторах",
+      "При необходимости — разбор с психологом по управлению стрессом",
+    ],
+  },
+  20: {
+    deviationType: "Построение предложений",
+    period: "Взлёт",
+    hypotheses: [
+      "Сжатый временной интервал между брифингом и вылетом",
+      "Фрагментированные доклады при выполнении взлётного чек-листа",
+      "Показатель «Недооценка ситуации» по радару: 4.2/10",
+    ],
+    comparisonData: [
+      "Сравнение с эталонными записями взлёта — отклонение в структуре фраз",
+      "Перерыв между рейсами: 10 ч (ночной сектор перед этим)",
+      "Психотестирование: внимание 6.1/10",
+    ],
+    recommendations: [
+      "Заложить буферное время между брифингом и вылетом при ночных секторах",
+      "Повторение процедур взлётного чек-листа с акцентом на чёткость докладов",
+      "При повторении — разбор с инструктором",
+    ],
+  },
+  21: {
+    deviationType: "Скорость речи",
+    period: "Набор высоты",
+    hypotheses: [
+      "Ускоренный темп речи (≈180 сл/мин при норме 120–140) — возможная реакция на повышение рабочей нагрузки при переходе в крейсер",
+      "Накануне — короткий перерыв между рейсами (9 ч), сон 5 ч — связь с усталостью и компенсаторным «торопливым» темпом",
+      "Показатель «Стресс» по психотестированию: 5.4/10; нагрузка при получении допуска: 4 проверки за 2 месяца",
+    ],
+    comparisonData: [
+      "Сравнение с эталонной скоростью речи для фаз набора высоты (120–140 сл/мин) — превышение на 28%",
+      "Базовая запись того же периода при достаточном отдыхе — норма",
+      "Медицинский осмотр пройден за 3 дня до сессии — без замечаний; связь с адаптацией после медкомиссии",
+    ],
+    recommendations: [
+      "Тренировка осознанного темпа речи в критических фазах (набор, заход) — напоминание «говори медленнее» в брифинге",
+      "Увеличить межрейсовый отдых при накопленной нагрузке и после медкомиссии",
+      "При повторении — разбор с инструктором и при необходимости консультация по техникам саморегуляции",
+    ],
+  },
+  26: {
+    deviationType: "Интонации",
+    period: "Брифинг",
+    hypotheses: [
+      "Ранний вылет (06:15) — возможный недостаток сна",
+      "Сниженная энергетика голоса в начале брифинга",
+      "Сравнение с дневными брифингами — выраженное отличие",
+    ],
+    comparisonData: [
+      "Запись брифинга при вылете 14:00 — норма",
+      "Фактический сон: 5.5 ч (по данным приложения)",
+      "Психотестирование: усталость 5.9/10",
+    ],
+    recommendations: [
+      "Рекомендовать ранний отбой при ранних вылетах",
+      "Краткая «разминка» коммуникации перед брифингом",
+      "При систематических отклонениях — оценка режима сна",
+    ],
+  },
+  32: {
+    deviationType: "Построение предложений",
+    period: "Завершение рейса / чек-лист",
+    hypotheses: [
+      "Третий сектор за день — накопленная усталость",
+      "Пропуски в стандартных фразах чек-листа после посадки",
+      "Связь с длительностью смены: 11 ч 40 мин",
+    ],
+    comparisonData: [
+      "Сравнение с первым сектором того же дня — норма",
+      "Данные по нагрузке: 3 сектора, 2 промежуточных посадки",
+      "Психотестирование: усталость 6.5/10",
+    ],
+    recommendations: [
+      "Усилить взаимный контроль в чек-листе при многосекторных сменах",
+      "Использовать письменный чек-лист для минимизации пропусков",
+      "При планировании — учитывать накопленную нагрузку к концу смены",
+    ],
+  },
+  33: {
+    deviationType: "Построение предложений",
+    period: "Посадка",
+    hypotheses: [
+      "Второй сектор, короткий перерыв между рейсами (55 мин) — неполное восстановление фокуса",
+      "Неточности в докладе при заходе, пропуск одного пункта в чек-листе",
+      "Показатель «Внимание» по психотестированию: 5.6/10",
+    ],
+    comparisonData: [
+      "Сравнение с эталонной последовательностью докладов при заходе — отклонение",
+      "Данные планирования: 2 рейса в тот день, перерыв 55 мин",
+      "Медицинский осмотр пройден за неделю — без замечаний",
+    ],
+    recommendations: [
+      "Увеличить минимальный перерыв между секторами при многорейсовых сменах",
+      "Повторение процедур доклада при заходе — чек-лист по памяти",
+      "При повторении — разбор с КВС по взаимному контролю в критических фазах",
+    ],
+  },
+  35: {
+    deviationType: "Интонации",
+    period: "Дебрифинг",
+    hypotheses: [
+      "Конец смены с тремя секторами — накопленная усталость к вечеру",
+      "Снижение модуляции голоса, «плоская» интонация при обсуждении полёта",
+      "Перерыв между вторым и третьим сектором — 1 ч 20 мин (сжатый график)",
+    ],
+    comparisonData: [
+      "Сравнение с дебрифингами после 1–2 секторов — норма",
+      "Длительность смены: 10 ч 50 мин, прилёт 22:35",
+      "Психотестирование: усталость 6.3/10 в конце дня",
+    ],
+    recommendations: [
+      "Учитывать многосекторность при планировании качества дебрифинга",
+      "Краткий структурированный чек-лист для вечернего разбора",
+      "При повторении — пересмотр распределения секторов в смене",
+    ],
+  },
+  40: {
+    deviationType: "Интонации",
+    period: "Тренинг по обучению",
+    hypotheses: [
+      "Отработка нового модуля CRM — адаптация к материалу",
+      "Повышенная осторожность в формулировках, неуверенность в интонации",
+      "Первый раз в роли стажёра на тренинге",
+    ],
+    comparisonData: [
+      "Сравнение с записями опытных инструкторов — типичный паттерн новичка",
+      "Оценка тренера: «требуется практика презентации»",
+      "Психотестирование: стресс 5.2/10 (новая роль)",
+    ],
+    recommendations: [
+      "Дополнительные сессии по презентации и ведению брифингов",
+      "Парная работа с опытным инструктором на тренингах",
+      "Обратная связь после каждого тренинга — накопление опыта",
+    ],
+  },
+};
+
+// Аудио: состояние по записям — норма (true) / аномалия (false) по сессиям
 const audioSessions = [
   true, true, true, false, true, true, true, true, false, true, true, true,
-  true, false, true, true, true, true, true, true, false, true, true, true,
-  true, true, false, true, true, true, true, true, true, false, true, true,
+  true, false, true, true, true, true, true, true, false, false, true, true,
+  true, true, false, true, true, true, true, true, true, false, true, false,
   true, true, true, true, false, true, true, true, true, true, true, true,
 ];
 
@@ -269,8 +485,77 @@ export function TrainingBarChart() {
   );
 }
 
-/** График по аудио: уменьшен, текст «Сессии — время» мельче, две дополнительные строки записей */
+/** Модальное окно с деталями отклонения по аудио */
+function AudioAnomalyModal({
+  details,
+  sessionIndex,
+  onClose,
+}: {
+  details: AudioAnomalyDetails;
+  sessionIndex: number;
+  onClose: () => void;
+}) {
+  const row = Math.floor(sessionIndex / 12) + 1;
+  const col = (sessionIndex % 12) + 1;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+          <h3 className="text-base font-semibold text-slate-800">
+            Отклонение в записи — сессия {row}×{col}
+          </h3>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            ×
+          </Button>
+        </div>
+        <div className="p-4 overflow-y-auto sidebar-scroll space-y-4 text-sm">
+          <div>
+            <p className="font-medium text-slate-700 mb-0.5">Тип отклонения</p>
+            <p className="text-slate-600">{details.deviationType}</p>
+          </div>
+          <div>
+            <p className="font-medium text-slate-700 mb-0.5">Период работы (второй пилот B777)</p>
+            <p className="text-slate-600">{details.period}</p>
+          </div>
+          <div>
+            <p className="font-medium text-slate-700 mb-1">Гипотезы</p>
+            <ul className="list-disc list-inside text-slate-600 space-y-0.5">
+              {details.hypotheses.map((h, i) => (
+                <li key={i}>{h}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="font-medium text-slate-700 mb-1">Сравнение с данными</p>
+            <ul className="list-disc list-inside text-slate-600 space-y-0.5">
+              {details.comparisonData.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="font-medium text-slate-700 mb-1">Рекомендации</p>
+            <ul className="list-disc list-inside text-slate-600 space-y-0.5">
+              {details.recommendations.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** График по аудио: красные квадратики кликабельны — показывают детали отклонений */
 export function AudioStateChart() {
+  const [selectedAnomaly, setSelectedAnomaly] = useState<number | null>(null);
   const cellSize = 11;
   const cols = 12;
   const rows = Math.ceil(audioSessions.length / cols);
@@ -285,18 +570,28 @@ export function AudioStateChart() {
           const row = Math.floor(i / cols);
           const x = 36 + col * cellSize;
           const y = 10 + row * cellSize;
+          const isAnomaly = !normal;
+          const details = audioAnomalyDetails[i];
+          const isClickable = isAnomaly && details;
+
           return (
-            <rect
-              key={i}
-              x={x}
-              y={y}
-              width={cellSize - 1}
-              height={cellSize - 1}
-              rx={1}
-              fill={normal ? "var(--accent)" : "#dc2626"}
-              stroke={normal ? "var(--green-dark)" : "#b91c1c"}
-              strokeWidth="0.5"
-            />
+            <g key={i}>
+              <rect
+                x={x}
+                y={y}
+                width={cellSize - 1}
+                height={cellSize - 1}
+                rx={1}
+                fill={normal ? "var(--accent)" : "#dc2626"}
+                stroke={normal ? "var(--green-dark)" : "#b91c1c"}
+                strokeWidth="0.5"
+                className={isClickable ? "cursor-pointer hover:opacity-90" : undefined}
+                onClick={isClickable ? () => setSelectedAnomaly(i) : undefined}
+              />
+              {isClickable && (
+                <title>Нажмите для просмотра деталей отклонения</title>
+              )}
+            </g>
           );
         })}
         <text x={3} y={height / 2} textAnchor="middle" dominantBaseline="middle" className="fill-slate-500" style={{ fontSize: 7 }} transform={`rotate(-90 3 ${height / 2})`}>
@@ -308,8 +603,15 @@ export function AudioStateChart() {
       </svg>
       <div className="flex flex-wrap justify-center gap-2 mt-1 text-[10px] text-slate-600">
         <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-[var(--accent)]" /> Норма</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-red-600" /> Аномалии</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-red-600" /> Аномалии — нажмите для деталей</span>
       </div>
+      {selectedAnomaly !== null && audioAnomalyDetails[selectedAnomaly] && (
+        <AudioAnomalyModal
+          details={audioAnomalyDetails[selectedAnomaly]}
+          sessionIndex={selectedAnomaly}
+          onClose={() => setSelectedAnomaly(null)}
+        />
+      )}
     </div>
   );
 }

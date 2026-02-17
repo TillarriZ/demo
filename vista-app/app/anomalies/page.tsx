@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 
@@ -8,7 +8,7 @@ type LogKind = "risk" | "attention" | "error" | "conflict" | "violation" | "norm
 
 const SHIFT_DATES_2026 = ["01.01.2026", "02.01.2026", "03.01.2026", "04.01.2026", "05.01.2026", "06.01.2026", "07.01.2026", "08.01.2026", "09.01.2026", "10.01.2026", "11.01.2026", "12.01.2026", "13.01.2026", "14.01.2026", "15.01.2026", "16.01.2026", "17.01.2026", "18.01.2026", "19.01.2026", "20.01.2026"];
 
-const STREAM_ROWS: {
+const STREAM_ROWS_RAW: {
   id: string;
   date: string;
   start: string;
@@ -19,6 +19,10 @@ const STREAM_ROWS: {
   employeeId: string;
   name: string;
 }[] = [
+  { id: "5001001", date: SHIFT_DATES_2026[15], start: "06:15:00", break: "1 long 2 short", log: "Опоздание", logKind: "late", info: "Обр. внимание", employeeId: "5001001", name: "Волков А.С." },
+  { id: "5001002", date: SHIFT_DATES_2026[16], start: "06:22:00", break: "0 long 1 short", log: "1 Норма", logKind: "norm", info: "Проф. прогноз", employeeId: "5001002", name: "Морозов Д.В." },
+  { id: "88112233", date: SHIFT_DATES_2026[18], start: "08:00:00", break: "1 long 3 short", log: "1 Норма", logKind: "norm", info: "—", employeeId: "5001001", name: "Волков А.С." },
+  { id: "88112234", date: SHIFT_DATES_2026[19], start: "07:55:00", break: "0 long 2 short", log: "1 Внимание", logKind: "attention", info: "Доп. анализ", employeeId: "5001002", name: "Морозов Д.В." },
   { id: "01927453", date: SHIFT_DATES_2026[0], start: "12:02:53", break: "1 long 5 short", log: "3 зоны риска", logKind: "risk", info: "Доп. анализ", employeeId: "363893", name: "Иванов И.И." },
   { id: "4632412", date: SHIFT_DATES_2026[1], start: "14:33:16", break: "1 long 4 short", log: "1 снижение", logKind: "risk", info: "Обр. внимания", employeeId: "363893", name: "Иванов И.И." },
   { id: "26575234", date: SHIFT_DATES_2026[2], start: "12:02:53", break: "0 long 8 short", log: "3 раза 1 ошибка", logKind: "error", info: "Нужен отпуск", employeeId: "4832412", name: "Петров П.П." },
@@ -34,12 +38,9 @@ const STREAM_ROWS: {
   { id: "24965494", date: SHIFT_DATES_2026[12], start: "12:02:53", break: "2 long 2 short", log: "1 Давление", logKind: "pressure", info: "Проф. прогноз", employeeId: "24965494", name: "Сидоров С.С." },
   { id: "10483409", date: SHIFT_DATES_2026[13], start: "12:02:53", break: "1 long 0 short", log: "1 Норма", logKind: "norm", info: "Мед. осмотр", employeeId: "10483409", name: "Козлов К.К." },
   { id: "3465434", date: SHIFT_DATES_2026[14], start: "12:02:53", break: "1 long 2 short", log: "1 Буфер", logKind: "buffer", info: "Команда", employeeId: "3465434", name: "Новиков Н.Н." },
-  { id: "5001001", date: SHIFT_DATES_2026[15], start: "06:15:00", break: "1 long 2 short", log: "Опоздание", logKind: "late", info: "Обр. внимание", employeeId: "5001001", name: "Волков А.С." },
-  { id: "5001002", date: SHIFT_DATES_2026[16], start: "06:22:00", break: "0 long 1 short", log: "1 Норма", logKind: "norm", info: "Проф. прогноз", employeeId: "5001002", name: "Морозов Д.В." },
   { id: "5001003", date: SHIFT_DATES_2026[17], start: "14:08:00", break: "1 long 4 short", log: "Опоздание", logKind: "late", info: "Команда", employeeId: "5001002", name: "Морозов Д.В." },
-  { id: "88112233", date: SHIFT_DATES_2026[18], start: "08:00:00", break: "1 long 3 short", log: "1 Норма", logKind: "norm", info: "—", employeeId: "5001001", name: "Волков А.С." },
-  { id: "88112234", date: SHIFT_DATES_2026[19], start: "07:55:00", break: "0 long 2 short", log: "1 Внимание", logKind: "attention", info: "Доп. анализ", employeeId: "5001002", name: "Морозов Д.В." },
 ];
+const STREAM_ROWS = STREAM_ROWS_RAW;
 
 type EmployeeProfile = {
   name: string;
@@ -173,10 +174,12 @@ const EARLY_WARNING_ITEMS: { id: string; label: string; date: string; time: stri
   { id: "overload", label: "Overload", date: "10.02.2025", time: "06:00–10:00", desc: "Перегрузка сектора УВД в утреннем пике, время реакции +45%." },
 ];
 
-const AI_BOT_MESSAGES = [
-  "Анализ «причина → следствие» по ошибке сотрудника ФИО готов",
-  "Анализ «причина → следствие» по ошибке сотрудника ФИО готов",
-  "Анализ «причина → следствие» по ошибке сотрудника ФИО готов",
+const AI_BOT_INITIAL = 'Зафиксированы новые сигналы "Опоздание", "Конфликт", "Нарушение". Направить дополнительную информацию?';
+const BOT_MESSAGE_DELAY_MS = 1500;
+const AI_BOT_REPORT_ITEMS = [
+  { signal: "Опоздание", employeeId: "5001001", name: "Волков А.С.", department: "Лётная служба", position: "КВС", criticality: "Средняя", measures: "Обр. внимание, проф. прогноз" },
+  { signal: "Конфликт", employeeId: "363893", name: "Иванов И.И.", department: "Департамент X", position: "Senior Manager", criticality: "Средняя", measures: "Команда, медиация" },
+  { signal: "Нарушение", employeeId: "4832412", name: "Петров П.П.", department: "Департамент Y", position: "Специалист по планированию", criticality: "Высокая", measures: "Проф. прогноз, разбор инцидента" },
 ];
 
 function logCellClass(logKind: LogKind): string {
@@ -200,8 +203,23 @@ export default function AnomaliesPage() {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [earlyWarningOpen, setEarlyWarningOpen] = useState<string | null>(null);
   const [aiBotOpen, setAiBotOpen] = useState(false);
-  const [aiChatMessages, setAiChatMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
+  const [aiChatMessages, setAiChatMessages] = useState<{ role: "user" | "bot"; text: string; reportId?: string }[]>([]);
   const [aiChatInput, setAiChatInput] = useState("");
+  const [aiReportOpenIndex, setAiReportOpenIndex] = useState<number | null>(null);
+  const [aiRedirectSent, setAiRedirectSent] = useState(false);
+  const [aiPendingBotMessage, setAiPendingBotMessage] = useState<{ text: string; reportId?: string } | null>(null);
+  const aiBotTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (aiPendingBotMessage === null) return;
+    aiBotTimeoutRef.current = setTimeout(() => {
+      setAiChatMessages((prev) => [...prev, { role: "bot", ...aiPendingBotMessage }]);
+      setAiPendingBotMessage(null);
+    }, BOT_MESSAGE_DELAY_MS);
+    return () => {
+      if (aiBotTimeoutRef.current) clearTimeout(aiBotTimeoutRef.current);
+    };
+  }, [aiPendingBotMessage]);
 
   const filteredRows = useMemo(() => {
     if (!search.trim()) return STREAM_ROWS;
@@ -221,9 +239,9 @@ export default function AnomaliesPage() {
 
   return (
     <div className="space-y-6">
-      {/* CTO/CPO: Early Warning и AI-Бот перенесены влево над Аналитикой; Data Stream и профили расширены; окно профиля всегда активно с пустым состоянием; добавлены пилоты, лог «Опоздание», подсказка и время обновления для user-friendly вида */}
+      {/* CTO/CPO: Early Warning и AI-bot перенесены влево над Аналитикой; Data Stream и профили расширены; окно профиля всегда активно с пустым состоянием; добавлены пилоты, лог «Опоздание», подсказка и время обновления для user-friendly вида */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Левая колонка: Early Warning → AI-Бот → Аналитика → Root-Cause */}
+        {/* Левая колонка: Early Warning → AI-bot → Аналитика → Root-Cause */}
         <div className="lg:col-span-3 flex flex-col gap-4">
           <Card accent className="overflow-visible">
             <CardHeader>
@@ -264,21 +282,24 @@ export default function AnomaliesPage() {
             <CardHeader>
               <h2 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
                 <svg className="w-5 h-5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                AI-Бот
+                AI-bot
               </h2>
             </CardHeader>
-            <CardBody className="space-y-2">
-              {AI_BOT_MESSAGES.map((msg, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setAiBotOpen(true)}
-                  className="w-full p-3 rounded-lg bg-slate-100 border border-slate-200 text-left text-xs text-slate-700 hover:bg-slate-200 transition-colors"
-                >
-                  <p className="font-medium text-slate-500 text-[10px] mb-0.5">AI-Бот</p>
-                  <p>{msg}</p>
-                </button>
-              ))}
+            <CardBody>
+              <button
+                type="button"
+                onClick={() => {
+                  setAiChatMessages([{ role: "bot", text: AI_BOT_INITIAL }]);
+                  setAiReportOpenIndex(null);
+                  setAiRedirectSent(false);
+                  setAiPendingBotMessage(null);
+                  setAiBotOpen(true);
+                }}
+                className="w-full p-3 rounded-lg bg-slate-100 border border-slate-200 text-left text-xs text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-2"
+              >
+                <span className="font-medium text-slate-500 text-[10px]">AI-bot</span>
+                <span>Чат с ботом</span>
+              </button>
             </CardBody>
           </Card>
           <Card>
@@ -504,22 +525,86 @@ export default function AnomaliesPage() {
         </div>
       </div>
 
-      {/* Модальное окно переписки с AI-ботом */}
+      {/* Модальное окно переписки с AI-bot */}
       {aiBotOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setAiBotOpen(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+          onClick={() => {
+            setAiBotOpen(false);
+            setAiReportOpenIndex(null);
+            setAiPendingBotMessage(null);
+            if (aiBotTimeoutRef.current) { clearTimeout(aiBotTimeoutRef.current); aiBotTimeoutRef.current = null; }
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-3 border-b border-slate-200">
-              <h3 className="font-semibold text-slate-800 text-sm">Переписка с AI-ботом</h3>
-              <button type="button" onClick={() => setAiBotOpen(false)} className="text-slate-400 hover:text-slate-600 text-lg">×</button>
+              <h3 className="font-semibold text-slate-800 text-sm">Переписка с AI-bot</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setAiBotOpen(false);
+                  setAiReportOpenIndex(null);
+                  setAiPendingBotMessage(null);
+                  if (aiBotTimeoutRef.current) { clearTimeout(aiBotTimeoutRef.current); aiBotTimeoutRef.current = null; }
+                }}
+                className="text-slate-400 hover:text-slate-600 text-lg"
+              >
+                ×
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[200px]">
-              {aiChatMessages.length === 0 && (
-                <p className="text-xs text-slate-500">Напишите сообщение боту. Анализ «причина → следствие» по ошибке сотрудника готов к выдаче.</p>
+              {aiChatMessages.length === 0 && !aiPendingBotMessage && (
+                <p className="text-xs text-slate-500">Откройте чат с ботом — будет предложено направить дополнительную информацию по сигналам.</p>
+              )}
+              {aiPendingBotMessage && (
+                <div className="flex items-center gap-2 text-xs p-2 rounded-lg bg-slate-100 mr-4 w-fit">
+                  <span className="flex gap-0.5" aria-hidden>
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" style={{ animationDelay: "0.15s" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" style={{ animationDelay: "0.3s" }} />
+                  </span>
+                  <span className="font-medium text-slate-500">AI-bot печатает...</span>
+                </div>
               )}
               {aiChatMessages.map((m, i) => (
-                <div key={i} className={`text-xs p-2 rounded-lg ${m.role === "user" ? "bg-[var(--accent-light)] ml-4" : "bg-slate-100 mr-4"}`}>
-                  {m.role === "bot" && <span className="font-medium text-slate-500">AI-Бот: </span>}
-                  {m.text}
+                <div key={i} className="space-y-1">
+                  <div className={`text-xs p-2 rounded-lg ${m.role === "user" ? "bg-[var(--accent-light)] ml-4" : "bg-slate-100 mr-4"}`}>
+                    {m.role === "bot" && <span className="font-medium text-slate-500">AI-bot: </span>}
+                    {m.text}
+                    {m.role === "bot" && m.reportId && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => setAiReportOpenIndex(aiReportOpenIndex === i ? null : i)}
+                          className="text-[var(--accent)] font-medium hover:underline text-[11px]"
+                        >
+                          {aiReportOpenIndex === i ? "Свернуть отчёт ▲" : "Краткий отчёт (нажмите для просмотра) ▼"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {m.reportId && aiReportOpenIndex === i && (
+                    <div className="ml-4 mr-4 p-3 rounded-lg border border-slate-200 bg-slate-50 text-[11px] text-slate-700 space-y-3">
+                      {AI_BOT_REPORT_ITEMS.map((row, ri) => (
+                        <div key={ri} className="border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                          <span className="font-medium text-slate-800">{row.signal}</span> — ID {row.employeeId}, {row.name}, {row.department}, {row.position}. Критичность: {row.criticality}. Меры: {row.measures}.
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiReportOpenIndex(null);
+                          if (!aiRedirectSent) {
+                            setAiRedirectSent(true);
+                            setAiPendingBotMessage({ text: "Дополнительная информация переправлена в Аналитику." });
+                          }
+                        }}
+                        className="mt-2 px-3 py-1.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300 text-[11px] font-medium"
+                      >
+                        Закрыть
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -530,24 +615,28 @@ export default function AnomaliesPage() {
                 onChange={(e) => setAiChatInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    if (aiChatInput.trim()) {
-                      setAiChatMessages((prev) => [...prev, { role: "user", text: aiChatInput.trim() }]);
-                      setAiChatMessages((prev) => [...prev, { role: "bot", text: "Принято. Анализ «причина → следствие» доступен в разделе RCA." }]);
-                      setAiChatInput("");
-                    }
+                    const raw = aiChatInput.trim();
+                    if (!raw) return;
+                    const normalized = raw.toLowerCase();
+                    const isYes = normalized === "да" || normalized === "ок" || normalized === "давай";
+                    setAiChatMessages((prev) => [...prev, { role: "user", text: raw }]);
+                    setAiPendingBotMessage(isYes ? { text: "Краткий отчёт по сигналам:", reportId: "report1" } : { text: "Принято. Можете запросить отчёт, ответив: Да / Ок / Давай." });
+                    setAiChatInput("");
                   }
                 }}
-                placeholder="Введите сообщение..."
+                placeholder="Введите сообщение (напр. Да / Ок / Давай)..."
                 className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
               />
               <button
                 type="button"
                 onClick={() => {
-                  if (aiChatInput.trim()) {
-                    setAiChatMessages((prev) => [...prev, { role: "user", text: aiChatInput.trim() }]);
-                    setAiChatMessages((prev) => [...prev, { role: "bot", text: "Принято. Анализ «причина → следствие» доступен в разделе RCA." }]);
-                    setAiChatInput("");
-                  }
+                  const raw = aiChatInput.trim();
+                  if (!raw) return;
+                  const normalized = raw.toLowerCase();
+                  const isYes = normalized === "да" || normalized === "ок" || normalized === "давай";
+                  setAiChatMessages((prev) => [...prev, { role: "user", text: raw }]);
+                  setAiPendingBotMessage(isYes ? { text: "Краткий отчёт по сигналам:", reportId: "report1" } : { text: "Принято. Можете запросить отчёт, ответив: Да / Ок / Давай." });
+                  setAiChatInput("");
                 }}
                 className="px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium"
               >

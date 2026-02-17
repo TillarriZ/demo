@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Card, { CardBody } from "@/components/ui/Card";
+import CoPilotChat from "@/components/CoPilotChat";
 
 const sections = [
   { href: "/copilot/profile", title: "Профиль", description: "Личные данные, траектория проф. надёжности, возможности развития" },
@@ -27,6 +28,7 @@ export default function CoPilotPage() {
           </Link>
         ))}
       </div>
+      <CoPilotChat />
     </div>
   );
 }

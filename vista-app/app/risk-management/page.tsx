@@ -370,7 +370,7 @@ export default function RiskManagementPage() {
               <th className="text-left py-2 px-1.5 font-semibold text-slate-700 text-[10px] leading-tight break-words whitespace-normal align-top min-w-[56px]">Влияние</th>
               <th className="text-left py-2 px-1.5 font-semibold text-slate-700 text-[10px] leading-tight break-words whitespace-normal align-top min-w-[68px]">Вероятность</th>
               <th className="text-left py-2 px-1.5 font-semibold text-slate-700 text-[10px] leading-tight break-words whitespace-normal align-top min-w-[80px]">Последствия</th>
-              <th className="text-left py-2 px-1.5 font-semibold text-slate-700 text-[10px] leading-tight break-words whitespace-normal align-top min-w-[72px]">Стоимость воздействия</th>
+              <th className="text-left py-2 px-1.5 font-semibold text-slate-700 text-[10px] leading-tight break-words whitespace-normal align-top min-w-[72px]">Стоимость риска (т.р.)</th>
               <th className="text-left py-2 px-1.5 font-semibold text-slate-700 text-[10px] leading-tight break-words whitespace-normal align-top min-w-[80px]">Владелец риска</th>
               <th className="text-left py-2 px-1.5 font-semibold text-slate-700 text-[10px] leading-tight break-words whitespace-normal align-top min-w-[72px]">Мероприятия</th>
               <th className="text-left py-2 px-1.5 font-semibold text-slate-700 text-[10px] leading-tight break-words whitespace-normal align-top min-w-[72px]">Первонач. риск %</th>
@@ -458,7 +458,7 @@ export default function RiskManagementPage() {
             </div>
             <h4 className="text-sm font-semibold text-slate-700 mt-4 mb-2">Финансовая информация</h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><p className="text-slate-500 text-xs">Стоимость воздействия</p><p className="text-slate-700">{selected.costImpact}</p></div>
+              <div><p className="text-slate-500 text-xs">Стоимость риска (т.р.)</p><p className="text-slate-700">{selected.costImpact}</p></div>
             </div>
             <h4 className="text-sm font-semibold text-slate-700 mt-4 mb-2">Ответственность</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">

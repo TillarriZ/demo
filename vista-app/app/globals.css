@@ -2,13 +2,13 @@
 
 :root {
   /* Новая палитра */
-  --green-main: #69835D;
+  --green-main: #638e59;
   --green-light: #79a471;
   --green-lighter: #8db881;
   --green-pale: #b5d1ad;
   --green-dark: #3b692f;
   --green-darker: #165b00;
-  --green-darkest: #024605;
+  --green-darkest: #034605;
   --green-bright: #95c740;
   --bg-white: #f6f6f6;
   --gray-light: #e6e6e6;
@@ -17,12 +17,12 @@
   /* Семантика для интерфейса */
   --background: var(--bg-white);
   --foreground: #0f172a;
-  --header: var(--green-darkest);
+  --header: var(--green-main);
   --header-hover: var(--green-darker);
   --header-active: var(--green-dark);
-  --accent: var(--green-main);
+  --accent: var(--green-lighter);
   --accent-light: var(--green-pale);
-  --sidebar: var(--green-darkest);
+  --sidebar: var(--green-main);
   --sidebar-width: 16rem;
   --sidebar-collapsed: 4rem;
   --card: #ffffff;
