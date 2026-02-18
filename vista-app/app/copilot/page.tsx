@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Card, { CardBody } from "@/components/ui/Card";
 import CoPilotChat from "@/components/CoPilotChat";
@@ -28,7 +29,9 @@ export default function CoPilotPage() {
           </Link>
         ))}
       </div>
-      <CoPilotChat />
+      <Suspense fallback={<div className="min-h-[200px] rounded-xl border border-slate-200 bg-slate-50 animate-pulse" />}>
+        <CoPilotChat />
+      </Suspense>
     </div>
   );
 }
