@@ -141,18 +141,20 @@ npm run build
 
 ### 4.3 Run with PM2 (keeps app running and restarts on crash)
 
-**Important:** Install deps, build, and start must all run from the **Next.js app directory** (the folder that contains `package.json` and `next`, e.g. `vista-app/`). If your repo is at `/var/www/demo`, use `/var/www/demo/vista-app`, not `/var/www/demo`.
+**Important:** PM2 must run the app with **cwd** set to the Next.js app directory (e.g. `vista-app/`). If you start from `/var/www/demo`, PM2 will look for `package.json` in `/var/www/demo` and fail. Use the **ecosystem file** (recommended) so the app directory is always correct.
 
-Install PM2 and start the app:
+Install PM2, then start using the ecosystem file (in the repo under `vista-app/ecosystem.config.cjs`):
 
 ```bash
 sudo npm install -g pm2
-cd /var/www/demo/vista-app   # or /var/www/vista-app — must be the directory that contains package.json + next
+cd /var/www/demo/vista-app   # must be the directory that contains package.json + next
 npm run build                # required before first start
-pm2 start npm --name "vista-app" -- start
+pm2 start ecosystem.config.cjs
 pm2 save
 pm2 startup   # run the command it prints to enable startup on reboot
 ```
+
+The ecosystem file sets `cwd` to the app directory automatically, so it works no matter where you cloned the repo.
 
 Useful PM2 commands:
 
@@ -163,13 +165,14 @@ pm2 restart vista-app
 pm2 stop vista-app
 ```
 
-The app will listen on a port (Next.js default **3000**). You can set a different port with:
+**If you don't use the ecosystem file**, you must run `pm2 start` from inside the app directory and use:
 
 ```bash
-PORT=3000 pm2 start npm --name "vista-app" -- start
+cd /var/www/demo/vista-app
+pm2 start npm --name "vista-app" -- start
 ```
 
-Or use an ecosystem file (see below).
+Starting from `/var/www/demo` (parent) will cause `ENOENT: no such file or directory, open '/var/www/demo/package.json'`.
 
 ---
 
@@ -227,36 +230,12 @@ Your app will be available at **https://yourdomain.com** (or http://YOUR_VPS_IP 
 
 ---
 
-### 4.5 Optional: PM2 ecosystem file
+### 4.5 PM2 ecosystem file (included in repo)
 
-In your app directory (e.g. `/var/www/vista-app/vista-app`):
-
-```bash
-nano ecosystem.config.cjs
-```
-
-```javascript
-module.exports = {
-  apps: [{
-    name: 'vista-app',
-    script: 'node_modules/next/dist/bin/next',
-    args: 'start',
-    cwd: '/var/www/vista-app/vista-app',  // adjust path
-    instances: 1,
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '500M',
-    env: {
-      NODE_ENV: 'production',
-      PORT: 3000
-    }
-  }]
-};
-```
-
-Then:
+The project includes `vista-app/ecosystem.config.cjs`, which starts Next.js with `cwd` set to the app directory (using `__dirname`), so PM2 always finds `package.json` and `.next` in the right place. Use it to avoid the "ENOENT package.json" error when the repo lives in a parent folder (e.g. `/var/www/demo/vista-app`):
 
 ```bash
+cd /var/www/demo/vista-app
 pm2 start ecosystem.config.cjs
 pm2 save
 ```
@@ -315,6 +294,16 @@ pm2 start npm --name "vista-app" -- start
 ```
 
 If you use a parent folder like `/var/www/demo`, do **not** run `npm start` or PM2 from there; always `cd` into the `vista-app` subfolder first.
+
+### "ENOENT: no such file or directory, open '/var/www/demo/package.json'"
+
+- PM2 is running with the **parent directory** as cwd instead of the app directory. Use the included ecosystem file so `cwd` is always the app folder:
+  ```bash
+  cd /var/www/demo/vista-app
+  pm2 delete vista-app   # remove the old process
+  pm2 start ecosystem.config.cjs
+  pm2 save
+  ```
 
 ### "Next.js inferred your workspace root" / multiple lockfiles
 
