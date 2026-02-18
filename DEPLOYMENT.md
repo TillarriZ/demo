@@ -305,6 +305,17 @@ If you use a parent folder like `/var/www/demo`, do **not** run `npm start` or P
   pm2 save
   ```
 
+### Can't see the site when visiting the server IP
+
+- The app listens on **port 3000**, not 80. Use: **http://YOUR_IP:3000** (e.g. `http://31.192.106.232:3000`).
+- If that still fails, the **firewall** is likely blocking port 3000. Allow it, then reload:
+  ```bash
+  sudo ufw allow 3000
+  sudo ufw reload
+  sudo ufw status
+  ```
+- To serve the site on **port 80** (so you can open http://YOUR_IP without `:3000`), set up Nginx as a reverse proxy (see §4.4). Nginx listens on 80 and forwards to `http://127.0.0.1:3000`; then allow port 80: `sudo ufw allow 80`.
+
 ### "Next.js inferred your workspace root" / multiple lockfiles
 
 - This appears when there is a `package-lock.json` (or other lockfile) in both a parent directory (e.g. `/var/www/demo`) and in the app directory (e.g. `/var/www/demo/vista-app`).

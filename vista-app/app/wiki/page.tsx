@@ -19,7 +19,7 @@ export default function WikiPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Button size="sm">Предложить раздел</Button>
-            <Link href="/copilot">
+            <Link href="/copilot?from=wiki-hints">
               <Button variant="secondary" size="sm">Контекстные подсказки в CoPilot</Button>
             </Link>
           </div>

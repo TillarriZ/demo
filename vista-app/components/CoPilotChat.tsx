@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Card, { CardBody } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -9,9 +11,10 @@ type Message = {
   id: string;
   sender: "ai" | "user";
   text: string;
-  type?: "report" | "question";
+  type?: "report" | "question" | "link";
   reportData?: { strengths: string[]; improvements: string[] };
   questionData?: { question: string; answer: string };
+  linkData?: { href: string; label: string };
   timestamp: Date;
 };
 
@@ -100,26 +103,53 @@ function ReportModal({
 export default function CoPilotChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [step, setStep] = useState<"init" | "waiting_yes" | "report_sent" | "waiting_mode" | "quiz_sent">("init");
+  const [step, setStep] = useState<"init" | "wiki_waiting" | "waiting_yes" | "report_sent" | "waiting_mode" | "quiz_sent">("init");
   const [reportOpen, setReportOpen] = useState(false);
   const [revealedQuestions, setRevealedQuestions] = useState<Set<string>>(new Set());
   const [reportDataForModal, setReportDataForModal] = useState(B777_REPORT);
+  const searchParams = useSearchParams();
+  const fromWikiHints = searchParams.get("from") === "wiki-hints";
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
-    if (step === "init" && messages.length === 0) {
-      const welcome: Message = {
-        id: "1",
-        sender: "ai",
-        text: "На прошлой неделе ты успешно прошёл тренажёр. Поздравляю! В системе появилась информация о результатах. Я могу проанализировать для тебя и сделать отчёт по сильным сторонам и по моментам, которые желательно подтянуть. Сделать?",
-        timestamp: new Date(),
-      };
-      setMessages([welcome]);
-      setStep("waiting_yes");
+    if (step !== "init" || messages.length > 0) return;
+    if (fromWikiHints) {
+      // Переход из Wiki: через 1 сек показываем сценарий «да/нет»
+      const t = setTimeout(() => {
+        setMessages((m) => {
+          if (m.length > 0) return m;
+          return [
+            {
+              id: "wiki-1",
+              sender: "ai" as const,
+              text: "Тебе нужна помощь по ситуации? найти в документации? Ответь: да/нет",
+              timestamp: new Date(),
+            },
+          ];
+        });
+        setStep("wiki_waiting");
+      }, 1000);
+      return () => clearTimeout(t);
     }
-  }, [step, messages.length]);
+    // Прямой заход в Employee CoPilot: сообщение про тренажёр через 2 секунды
+    const t = setTimeout(() => {
+      setMessages((m) => {
+        if (m.length > 0) return m;
+        return [
+          {
+            id: "1",
+            sender: "ai" as const,
+            text: "На прошлой неделе ты успешно прошёл тренажёр. Поздравляю! В системе появилась информация о результатах. Я могу проанализировать для тебя и сделать отчёт по сильным сторонам и по моментам, которые желательно подтянуть. Сделать?",
+            timestamp: new Date(),
+          },
+        ];
+      });
+      setStep("waiting_yes");
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [step, messages.length, fromWikiHints]);
 
   useEffect(() => scrollToBottom(), [messages]);
 
@@ -135,6 +165,39 @@ export default function CoPilotChat() {
     };
     setMessages((m) => [...m, userMsg]);
     setInput("");
+
+    if (step === "wiki_waiting") {
+      if (/^да\.?\s*$/i.test(trimmed)) {
+        const linkMsg: Message = {
+          id: `ai-${Date.now()}`,
+          sender: "ai",
+          text: "Перейди в Поиск информации",
+          type: "link",
+          linkData: { href: "/copilot/search", label: "Поиск информации" },
+          timestamp: new Date(),
+        };
+        setTimeout(() => setMessages((m) => [...m, linkMsg]), 500);
+        setStep("init");
+      } else if (/^нет\.?\s*$/i.test(trimmed)) {
+        const simulatorMsg: Message = {
+          id: `ai-${Date.now()}`,
+          sender: "ai",
+          text: "Тогда рекомендую пройти тренажёр по процедурам и сценариям — это поможет закрепить навыки и подготовиться к нестандартным ситуациям. Результаты тренажёра потом появятся здесь, и я смогу подготовить для тебя персональный разбор.",
+          timestamp: new Date(),
+        };
+        setTimeout(() => setMessages((m) => [...m, simulatorMsg]), 500);
+        setStep("init");
+      } else {
+        const aiReply: Message = {
+          id: `ai-${Date.now()}`,
+          sender: "ai",
+          text: "Ответь, пожалуйста, «да» или «нет»: нужна ли помощь по ситуации или поиск в документации?",
+          timestamp: new Date(),
+        };
+        setTimeout(() => setMessages((m) => [...m, aiReply]), 400);
+      }
+      return;
+    }
 
     if (step === "waiting_yes" && /^да\.?\s*$/i.test(trimmed)) {
       const reportMsg: Message = {
@@ -227,7 +290,17 @@ export default function CoPilotChat() {
                         : "bg-slate-100 text-slate-800"
                     }`}
                   >
-                    {msg.type === "report" && msg.reportData ? (
+                    {msg.type === "link" && msg.linkData ? (
+                      <p className="text-sm whitespace-pre-wrap">
+                        {msg.text}{" "}
+                        <Link
+                          href={msg.linkData.href}
+                          className="text-[var(--accent)] font-medium underline hover:no-underline"
+                        >
+                          {msg.linkData.label}
+                        </Link>
+                      </p>
+                    ) : msg.type === "report" && msg.reportData ? (
                       <button
                         onClick={() => openReport(msg.reportData!)}
                         className="text-left underline decoration-dotted hover:decoration-solid"

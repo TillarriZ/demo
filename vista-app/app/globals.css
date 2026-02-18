@@ -17,12 +17,12 @@
   /* Семантика для интерфейса */
   --background: var(--bg-white);
   --foreground: #0f172a;
-  --header: var(--green-main);
+  --header: var(--green-darkest);
   --header-hover: var(--green-darker);
   --header-active: var(--green-dark);
-  --accent: var(--green-lighter);
+  --accent: var(--green-main);
   --accent-light: var(--green-pale);
-  --sidebar: var(--green-main);
+  --sidebar: var(--green-darkest);
   --sidebar-width: 16rem;
   --sidebar-collapsed: 4rem;
   --card: #ffffff;
