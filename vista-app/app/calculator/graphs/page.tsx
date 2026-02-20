@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Card, { CardBody } from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -42,14 +41,18 @@ const RESPONSIBLE_SERVICES = [
 ];
 
 export default function CalculatorGraphsPage() {
-  const router = useRouter();
+  const viewSectionRef = useRef<HTMLDivElement>(null);
   const [openBuild, setOpenBuild] = useState(false);
   const [openView, setOpenView] = useState(false);
   const [normProcess, setNormProcess] = useState(MAIN_PROCESSES[0]);
   const [normService, setNormService] = useState(RESPONSIBLE_SERVICES[0]);
   const [normServicesCount, setNormServicesCount] = useState("3");
 
-  const goToResult = () => router.push("/calculator/graphs/result");
+  const goToResult = useCallback(() => {
+    setOpenBuild(false);
+    setOpenView(true);
+    setTimeout(() => viewSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -170,7 +173,7 @@ export default function CalculatorGraphsPage() {
       )}
 
       {openView && (
-        <div>
+        <div ref={viewSectionRef}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 className="text-sm font-semibold text-slate-700">Посмотреть графы</h2>
             <Link href="/calculator/graphs/result">
