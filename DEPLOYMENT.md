@@ -316,6 +316,17 @@ If you use a parent folder like `/var/www/demo`, do **not** run `npm start` or P
   ```
 - To serve the site on **port 80** (so you can open http://YOUR_IP without `:3000`), set up Nginx as a reverse proxy (see §4.4). Nginx listens on 80 and forwards to `http://127.0.0.1:3000`; then allow port 80: `sudo ufw allow 80`.
 
+### "Failed to find Server Action 'x'" (or similar)
+
+- This usually means the **browser has an old build** while the server is running a **new build**: action IDs no longer match.
+- **On the server:** After every deploy, restart the app so the running process uses the new build:
+  ```bash
+  cd /var/www/demo/vista-app
+  npm run build
+  pm2 restart vista-app
+  ```
+- **For users who see the error:** Hard refresh the page (Ctrl+Shift+R or Cmd+Shift+R) or clear the site’s cache so the browser loads the new JS. Avoid keeping the app open across deployments.
+
 ### "Next.js inferred your workspace root" / multiple lockfiles
 
 - This appears when there is a `package-lock.json` (or other lockfile) in both a parent directory (e.g. `/var/www/demo`) and in the app directory (e.g. `/var/www/demo/vista-app`).
@@ -338,4 +349,4 @@ If you use a parent folder like `/var/www/demo`, do **not** run `npm start` or P
 | PM2 start         | `pm2 start npm --name "vista-app" -- start` |
 | PM2 restart       | `pm2 restart vista-app`     |
 
-For hosting, the flow is: **install deps → build → run with PM2 → put Nginx in front with optional SSL.**
+For hosting, the flow is: **install deps → build → run with PM2 → put Nginx in front with optional SSL.** After every new deploy, run **`npm run build`** then **`pm2 restart vista-app`** so the server and client builds stay in sync and you avoid "Failed to find Server Action" errors.
